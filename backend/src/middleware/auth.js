@@ -1,7 +1,6 @@
-import { User } from "../db/models/User";
 import AppError from "../errors/AppError.js";
 import { verifyToken } from "../utils/jwt.js";
-import User from "../db/models/User.js";
+import { User } from "../db/models/User.js";
 
 async function authMiddleware(req, res, next) {
     try {

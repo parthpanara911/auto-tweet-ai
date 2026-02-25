@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import AppError from "../errors/AppError.js";
 
-function generateToken(userId) {
+function generateTokens(userId) {
     const accessToken = jwt.sign(
         { userId },
         process.env.ACCESS_TOKEN_SECRET,
@@ -26,4 +26,4 @@ function verifyToken(token, isRefresh = false) {
     }
 }
 
-export { generateToken, verifyToken };
+export { generateTokens, verifyToken };

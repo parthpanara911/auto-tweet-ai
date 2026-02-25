@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
         trim: true,
         sparse: true
     },
-    avatarUrl: String,
+    avatar: String,
     profileUrl: String,
     role: {
         type: String,
