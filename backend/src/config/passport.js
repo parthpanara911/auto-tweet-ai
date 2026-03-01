@@ -1,5 +1,6 @@
 import passport from "passport";
 import { Strategy as GitHubStrategy } from 'passport-github2';
+import { encrypt } from "../utils/encryption.js";
 import { User } from "../db/models/User.js";
 
 // Verify - find a user
@@ -20,13 +21,15 @@ passport.use(
                         username: profile.username,
                         email: profile.emails?.[0]?.value,
                         avatar: profile.photos?.[0]?.value,
+                        githubAccessToken: encrypt(accessToken),
                     });
                     await user.save();
+                } else {
+                    user.githubAccessToken = encrypt(accessToken);
+                    user.lastLoginAt = new Date();
+                    user.isActive = true;
+                    await user.save();
                 }
-
-                user.lastLoginAt = new Date();
-                user.isActive = true;
-                await user.save();
 
                 return done(null, user);
             } catch (error) {

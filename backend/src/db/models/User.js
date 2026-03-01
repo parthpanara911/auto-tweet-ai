@@ -28,6 +28,14 @@ const userSchema = new mongoose.Schema({
         enum: ["github"],
         default: "github",
     },
+    githubAccessToken: {
+        type: String,
+        required: true,
+    },
+    githubTokenEncrypted: {
+        type: Boolean,
+        default: false,
+    },
     // workspaceId: {
     //     type: mongoose.Schema.Types.ObjectId,
     //     ref: "Workspace",
