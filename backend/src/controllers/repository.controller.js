@@ -1,4 +1,5 @@
 import GithubService from "../services/github.service.js";
+import RepositoryService from "../services/repository.service.js";
 import { decrypt } from "../utils/encryption.js";
 import Repository from "../db/models/Repository.js";
 import AppError from "../errors/AppError.js";
@@ -46,7 +47,7 @@ class RepositoryController {
             const parsedLimit = parseInt(limit);
 
             const finalPage = isNaN(parsedPage) ? 1 : parsedPage;
-            const finalLimit = isNaN(parsedLimit) ? 10 : parsedLimit;
+            const finalLimit = Math.min(isNaN(parsedLimit) ? 10 : parsedLimit, 50);
 
             const result = await this.repositoryService.getUserRepositories(user._id, {
                 isTracking: isTracking ? isTracking === 'true' : null,
@@ -145,4 +146,7 @@ class RepositoryController {
     }
 }
 
-export default RepositoryController;
+const repositoryService = new RepositoryService();
+const repositoryController = new RepositoryController(repositoryService);
+
+export default repositoryController;
