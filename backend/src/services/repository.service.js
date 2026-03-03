@@ -14,6 +14,7 @@ class RepositoryService {
                     {
                         ...repo,
                         userId: user._id,
+                        isTracking: false,
                         lastSyncedAt: new Date(),
                     },
                     { upsert: true, new: true }
@@ -66,24 +67,20 @@ class RepositoryService {
 
     async addRepositoryToTracking(userId, repoFullName, githubService) {
         try {
-            const existing = await Repository.findOne({ userId });
-
-            if (existing) {
-                existing.isTracking = true;
-                await existing.save();
-                return existing;
-            }
-
             const repoData = await githubService.fetchRepositoryDetails(repoFullName);
 
-            const repo = new Repository({
-                ...repoData,
-                userId,
-                isTracking: true,
-                lastSyncedAt: new Date(),
-            });
+            const repo = await Repository.findOneAndUpdate(
+                { githubId: repoData.githubId, userId },
+                {
+                    $set: {
+                        ...repoData,
+                        isTracking: true,
+                        lastSyncedAt: new Date()
+                    }
+                },
+                { new: true, upsert: true }
+            );
 
-            await repo.save();
             return repo;
         } catch (error) {
             throw error;
@@ -94,7 +91,7 @@ class RepositoryService {
         try {
             const repo = await Repository.findOneAndUpdate(
                 { _id: repositoryId, userId },
-                { isTracking: false },
+                { $set: { isTracking: false } },
                 { new: true },
             )
 

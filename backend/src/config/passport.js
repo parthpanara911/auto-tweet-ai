@@ -26,6 +26,7 @@ passport.use(
                     await user.save();
                 } else {
                     user.githubAccessToken = encrypt(accessToken);
+                    user.githubTokenEncrypted = true;
                     user.lastLoginAt = new Date();
                     user.isActive = true;
                     await user.save();

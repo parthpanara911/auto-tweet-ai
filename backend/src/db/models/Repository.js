@@ -26,7 +26,7 @@ const repositorySchema = new mongoose.Schema({
     lastSyncedAt: Date,
     isTracking: {
         type: Boolean,
-        default: true,
+        default: false,
     },
 }, { timestamps: true }
 );

@@ -8,8 +8,8 @@ router.use(authMiddleware);
 
 router.post('/sync', RepositoryController.syncRepositories.bind(RepositoryController));
 router.get('/', RepositoryController.getUserRepositories.bind(RepositoryController));
-router.post('/track', RepositoryController.addRepositoryToTracking.bind(RepositoryController));
+router.patch('/track', RepositoryController.addRepositoryToTracking.bind(RepositoryController));
 router.get('/:repositoryId', RepositoryController.getRepositoryDetails.bind(RepositoryController));
-router.post('/:repositoryId/untrack', RepositoryController.removeRepositoryFromTracking.bind(RepositoryController));
+router.patch('/:repositoryId/untrack', RepositoryController.removeRepositoryFromTracking.bind(RepositoryController));
 
 export default router;
