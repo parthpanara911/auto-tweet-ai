@@ -1,15 +1,16 @@
 import crypto from "crypto";
+import config from "../config/environment.js";
 
-const ENCRYPTION_KEY = crypto
+const encryptionKey = crypto
     .createHash('sha256')
-    .update(process.env.ENCRYPTION_KEY)
+    .update(config.ENCRYPTION_KEY)
     .digest();
 
-const ALGORITHM = 'aes-256-gcm';
+const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
 
 function encrypt(text) {
     const iv = crypto.randomBytes(12);
-    const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
+    const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, encryptionKey, iv);
 
     const encrypted = Buffer.concat([
         cipher.update(text, 'utf8'),
@@ -28,7 +29,7 @@ function decrypt(encryptedData) {
     const authTag = Buffer.from(tagHex, 'hex');
     const encrypted = Buffer.from(encryptedHex, 'hex');
 
-    const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
+    const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, encryptionKey, iv);
     decipher.setAuthTag(authTag);
 
     const decrypted = Buffer.concat([

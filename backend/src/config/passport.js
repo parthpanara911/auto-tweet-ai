@@ -2,14 +2,14 @@ import passport from "passport";
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import { encrypt } from "../utils/encryption.js";
 import { User } from "../db/models/User.js";
+import config from "../config/environment.js";
 
-// Verify - find a user
 passport.use(
     new GitHubStrategy(
         {
-            clientID: process.env.GITHUB_CLIENT_ID,
-            clientSecret: process.env.GITHUB_CLIENT_SECRET,
-            callbackURL: process.env.GITHUB_CALLBACK_URL,
+            clientID: config.GITHUB_CLIENT_ID,
+            clientSecret: config.GITHUB_CLIENT_SECRET,
+            callbackURL: config.GITHUB_CALLBACK_URL,
         },
         async (accessToken, refreshToken, profile, done) => {
             try {
@@ -22,6 +22,7 @@ passport.use(
                         email: profile.emails?.[0]?.value,
                         avatar: profile.photos?.[0]?.value,
                         githubAccessToken: encrypt(accessToken),
+                        githubTokenEncrypted: true,
                     });
                     await user.save();
                 } else {
@@ -40,12 +41,10 @@ passport.use(
     )
 );
 
-// Remember user
 passport.serializeUser((user, done) => {
     done(null, user.id);
 });
 
-// Identify user
 passport.deserializeUser(async (id, done) => {
     try {
         const user = await User.findById(id);
