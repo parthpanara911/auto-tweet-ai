@@ -13,7 +13,7 @@ const webhookEventLogSchema = new mongoose.Schema({
         unique: true,
         index: true,
     },
-    // Payload
+
     payload: mongoose.Schema.Types.Mixed,
 
     signatureValid: Boolean,
@@ -28,7 +28,7 @@ const webhookEventLogSchema = new mongoose.Schema({
 }, {
     timestamps: true,
     collection: 'webhook_event_logs',
-    ttl: 604800,
+    ttl: 604800, // 7 days
 }
 );
 
