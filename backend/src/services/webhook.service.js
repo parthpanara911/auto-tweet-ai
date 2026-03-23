@@ -32,17 +32,28 @@ class WebhookService {
                 );
             }
 
-            const existingWebhook = await Webhook.findOne({
-                repositoryId,
-                isActive: true
-            });
+            const existingWebhook = await Webhook.findOne({ repositoryId });
 
             if (existingWebhook) {
-                throw new AppError(
-                    'Webhook already exists for this repository',
-                    409,
-                    'WEBHOOK_EXISTS'
-                );
+                if (existingWebhook.isActive) {
+                    throw new AppError(
+                        'Webhook already exists for this repository',
+                        409,
+                        'WEBHOOK_EXISTS'
+                    );
+                }
+
+                existingWebhook.isActive = true;
+                await existingWebhook.save();
+
+                return {
+                    id: existingWebhook._id,
+                    githubId: existingWebhook.githubId,
+                    repositoryId: existingWebhook.repositoryId,
+                    url: existingWebhook.url,
+                    isActive: existingWebhook.isActive,
+                    createdAt: existingWebhook.createdAt
+                };
             }
 
             // ======= Generate random secret =======
@@ -129,7 +140,7 @@ class WebhookService {
             }
 
             // ======= Fetch webhook =======
-            const webhook = await Webhook.findById(webhookId)
+            const webhook = await Webhook.findOne({ githubId: webhookId })
                 .populate('repositoryId', 'fullName')
                 .exec();
 
@@ -141,7 +152,7 @@ class WebhookService {
                 );
             }
 
-            if (webhook.userId.toString() !== userId) {
+            if (!webhook.userId.equals(userId)) {
                 throw new AppError(
                     'Unauthorized to delete this webhook',
                     403,
@@ -174,7 +185,7 @@ class WebhookService {
             return {
                 id: webhook._id,
                 githubId: webhook.githubId,
-                message: 'Webhook successfully deleted'
+                isActive: false
             };
         } catch (error) {
             if (error instanceof AppError) {
@@ -262,4 +273,4 @@ class WebhookService {
     }
 }
 
-export default WebhookService;
+export default new WebhookService();
