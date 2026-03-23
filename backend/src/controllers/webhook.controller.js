@@ -42,7 +42,13 @@ class WebhookController {
                 await WebhookEventLog.create({
                     webhookId: webhook._id,
                     githubDeliveryId: deliveryId,
-                    payload,
+                    payload: {
+                        repo: payload.repository?.full_name,
+                        branch: payload.ref?.replace('refs/heads/', ''),
+                        commitsCount: payload.commits?.length,
+                        author: payload.head_commit?.author?.name,
+                        message: payload.head_commit?.message
+                    },
                     signatureValid: true,
                     isDuplicate: false,
                     status: 'completed',
@@ -92,7 +98,13 @@ class WebhookController {
             await WebhookEventLog.create({
                 webhookId: webhook._id,
                 githubDeliveryId: deliveryId,
-                payload,
+                payload: {
+                    repo: payload.repository?.full_name,
+                    branch: payload.ref?.replace('refs/heads/', ''),
+                    commitsCount: payload.commits?.length,
+                    author: payload.head_commit?.author?.name,
+                    message: payload.head_commit?.message
+                },
                 signatureValid: true,
                 isDuplicate: false,
                 status: 'queued',
@@ -133,7 +145,7 @@ class WebhookController {
 
             const githubAccessToken = decrypt(user.githubAccessToken);
 
-            const webhookUrl = `${process.env.WEBHOOK_BASE_URL}/webhooks/github/{webhookId}`;
+            const webhookUrl = `${process.env.WEBHOOK_BASE_URL}/webhooks/github`;
 
             const webhook = await WebhookService.registerWebhook(
                 user._id,
@@ -154,14 +166,14 @@ class WebhookController {
     /**
      * Unregister webhook
      */
-    async unreigsterWebhook(req, res, next) {
+    async unregisterWebhook(req, res, next) {
         try {
             const user = req.user;
             const { webhookId } = req.params;
 
             const githubAccessToken = decrypt(user.githubAccessToken);
 
-            const result = await WebhookService.unreigsterWebhook(
+            const result = await WebhookService.unregisterWebhook(
                 user._id,
                 webhookId,
                 githubAccessToken
@@ -233,7 +245,7 @@ class WebhookController {
             const skip = (finalPage - 1) * finalLimit;
 
             const webhook = await Webhook.findOne({
-                _id: webhookId,
+                githubId: webhookId,
                 userId: req.user._id
             })
 
@@ -265,4 +277,4 @@ class WebhookController {
     }
 }
 
-export default WebhookController;
+export default new WebhookController();
