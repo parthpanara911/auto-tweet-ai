@@ -39,7 +39,9 @@ class DedupService {
     async markAsSeen(commitSha, ttlSeconds = 604800) {
         try {
             const cacheKey = `webhook:commit:${commitSha}`;
-            await redisClient.setex(cacheKey, ttlSeconds, Date.now().toString());
+            await redisClient.set(cacheKey, Date.now().toString(), {
+                EX: ttlSeconds
+            });
             console.log(`[Dedup] Marked as seen: ${commitSha}`);
         } catch (error) {
             console.error(`[Dedup] Error marking as seen: ${error.message}`);
@@ -69,8 +71,10 @@ class DedupService {
     async markDeliveryAsProcessed(deliveryId, ttlSeconds = 86400) {
         try {
             const key = `webhook:delivery:${deliveryId}`;
-            await redisClient.setex(key, ttlSeconds, Date.now().toString());
-            console.log(`[Dedup] 📝 Marked delivery as processed: ${deliveryId}`);
+            await redisClient.set(key, Date.now().toString(), {
+                EX: ttlSeconds
+            });
+            console.log(`[Dedup] Marked delivery as processed: ${deliveryId}`);
         } catch (error) {
             console.error(
                 `[Dedup] Error marking delivery: ${error.message}`
@@ -79,4 +83,4 @@ class DedupService {
     }
 }
 
-export default DedupService;
+export default new DedupService();
