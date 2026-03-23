@@ -6,7 +6,9 @@ import authMiddleware from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.get('/github', passport.authenticate('github', { scope: ['user:email'] }));
+router.get('/github', passport.authenticate('github', {
+    scope: ['user:email', 'repo', 'admin:repo_hook']
+}));
 
 router.get('/github/callback',
     passport.authenticate('github', { session: false }),

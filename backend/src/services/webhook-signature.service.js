@@ -41,7 +41,7 @@ class WebhookSignatureService {
         }
 
         const hmac = crypto.createHmac('sha256', secret);
-        hmac.update(payload, 'utf8');
+        hmac.update(payload);
 
         const computedHash = hmac.digest('hex');
 
@@ -61,7 +61,7 @@ class WebhookSignatureService {
     }
 
     static getDeliveryId(headers) {
-        return headers['x-github-delivery-uuid'] || null;
+        return headers['x-github-delivery'] || null;
     }
 
     static getEventType(headers) {

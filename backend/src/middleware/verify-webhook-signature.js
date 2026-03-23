@@ -8,13 +8,11 @@ async function verifyWebhookSignature(req, res, next) {
     try {
         const { webhookId } = req.params;
         const signature = req.headers['x-hub-signature-256'];
-        const deliveryId = req.headers['x-github-delivery-uuid'];
+        const deliveryId = req.headers['x-github-delivery'];
         const eventType = req.headers['x-github-event'];
 
-        let payload = req.body;
-        if (Buffer.isBuffer(payload)) {
-            payload = payload.toString('utf-8');
-        }
+        const payload = req.body;
+
         console.log(
             `Webhook received: webhookId=${webhookId}, deliveryID=${deliveryId}, event=${eventType}`
         );
@@ -51,7 +49,7 @@ async function verifyWebhookSignature(req, res, next) {
         }
 
         // ======= Load webhook from db =======
-        const webhook = await Webhook.findById(webhookId);
+        const webhook = await Webhook.findOne({ githubId: webhookId });
 
         if (!webhook) {
             console.warn(`Webhook not found: ${webhookId}`);
@@ -113,6 +111,7 @@ async function verifyWebhookSignature(req, res, next) {
 
         try {
             isSignatureValid = WebhookSignatureService.verifySignature(payload, signature, decryptedSecret);
+            req.body = JSON.parse(payload.toString('utf-8'));
             console.log(`[Webhook] Signature verified successfully: ${webhookId}`);
         } catch (error) {
             signatureError = error;
