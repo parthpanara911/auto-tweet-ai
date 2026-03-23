@@ -6,10 +6,19 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-router.post('/sync', RepositoryController.syncRepositories.bind(RepositoryController));
-router.get('/', RepositoryController.getUserRepositories.bind(RepositoryController));
-router.patch('/track', RepositoryController.addRepositoryToTracking.bind(RepositoryController));
-router.get('/:repositoryId', RepositoryController.getRepositoryDetails.bind(RepositoryController));
-router.patch('/:repositoryId/untrack', RepositoryController.removeRepositoryFromTracking.bind(RepositoryController));
+// Sync repositories from GitHub
+router.post('/sync', (req, res, next) => RepositoryController.syncRepositories(req, res, next));
+
+// Get user's repositories
+router.get('/', (req, res, next) => RepositoryController.getUserRepositories(req, res, next));
+
+// Add repository to tracking
+router.patch('/track', (req, res, next) => RepositoryController.addRepositoryToTracking(req, res, next));
+
+// Get repository details
+router.get('/:repositoryId', (req, res, next) => RepositoryController.getRepositoryDetails(req, res, next));
+
+// Remove repository from tracking
+router.patch('/:repositoryId/untrack', (req, res, next) => RepositoryController.removeRepositoryFromTracking(req, res, next));
 
 export default router;

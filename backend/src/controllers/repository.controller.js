@@ -5,10 +5,6 @@ import Repository from "../db/models/Repository.js";
 import AppError from "../errors/AppError.js";
 
 class RepositoryController {
-    constructor(repositoryService) {
-        this.repositoryService = repositoryService;
-    }
-
     async syncRepositories(req, res, next) {
         try {
             const user = req.user;
@@ -16,7 +12,7 @@ class RepositoryController {
             const decryptedToken = decrypt(user.githubAccessToken);
             const githubService = new GithubService(decryptedToken);
 
-            const syncedRepos = await this.repositoryService.syncUserRepositories(
+            const syncedRepos = await RepositoryService.syncUserRepositories(
                 user,
                 githubService
             );
@@ -49,7 +45,7 @@ class RepositoryController {
             const finalPage = isNaN(parsedPage) ? 1 : parsedPage;
             const finalLimit = Math.min(isNaN(parsedLimit) ? 10 : parsedLimit, 50);
 
-            const result = await this.repositoryService.getUserRepositories(user._id, {
+            const result = await RepositoryService.getUserRepositories(user._id, {
                 isTracking: isTracking ? isTracking === 'true' : null,
                 skip: (finalPage - 1) * finalLimit,
                 limit: finalLimit,
@@ -80,7 +76,7 @@ class RepositoryController {
             const decryptedToken = decrypt(user.githubAccessToken);
             const githubService = new GithubService(decryptedToken);
 
-            const repo = await this.repositoryService.addRepositoryToTracking(
+            const repo = await RepositoryService.addRepositoryToTracking(
                 user._id,
                 repoFullName,
                 githubService
@@ -105,7 +101,7 @@ class RepositoryController {
             const user = req.user;
             const { repositoryId } = req.params;
 
-            const repo = await this.repositoryService.removeRepositoryFromTracking(
+            const repo = await RepositoryService.removeRepositoryFromTracking(
                 user._id,
                 repositoryId
             );
@@ -146,7 +142,4 @@ class RepositoryController {
     }
 }
 
-const repositoryService = new RepositoryService();
-const repositoryController = new RepositoryController(repositoryService);
-
-export default repositoryController;
+export default new RepositoryController();

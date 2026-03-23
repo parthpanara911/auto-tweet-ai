@@ -125,4 +125,4 @@ class RepositoryService {
     }
 }
 
-export default RepositoryService;
+export default new RepositoryService();
