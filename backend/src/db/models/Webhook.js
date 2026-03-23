@@ -11,6 +11,7 @@ const webhookSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Repository',
         required: true,
+        unique: true,
         index: true,
     },
     userId: {
@@ -40,6 +41,5 @@ const webhookSchema = new mongoose.Schema({
 });
 
 webhookSchema.index({ userId: 1, isActive: 1 });
-webhookSchema.index({ repositoryId: 1 });
 
 export default mongoose.model('Webhook', webhookSchema);
