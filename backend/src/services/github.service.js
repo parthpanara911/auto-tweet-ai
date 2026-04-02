@@ -2,8 +2,10 @@ import axios from "axios";
 import AppError from "../errors/AppError.js";
 
 class GithubService {
-    constructor(accessToken) {
+    constructor(accessToken, { redisClient, rateLimitService }) {
         this.accessToken = accessToken;
+        this.redisClient = redisClient;
+        this.rateLimitService = rateLimitService;
         this.client = axios.create({
             baseURL: 'https://api.github.com',
             headers: {
@@ -78,13 +80,122 @@ class GithubService {
         }
     }
 
-    async getRateLimitStatus() {
+    /**
+     * Fetch detailed commit info from GitHub
+     * Includes caching + rate limit handling
+     */
+    async fetchCommitDetails(owner, repo, sha, userId) {
+        const cacheKey = `commit:${owner}:${repo}:${sha}`;
         try {
-            const response = await this.client.get('/rate_limit');
-            return response.data.rate_limit;
+            // Check Redis cache 
+            const cached = await this.redisClient.get(cacheKey);
+            if (cached) {
+                return JSON.parse(cached);
+            }
+
+            // Check rate limit before API call
+            const canRequest = await this.rateLimitService.checkCanMakeRequest(userId);
+            if (!canRequest) {
+                await this.rateLimitService.waitForRateLimitReset(userId);
+            }
+
+            // Call GitHub API
+            const response = await this.client.get(
+                `/repos/${owner}/${repo}/commits/${sha}`
+            );
+
+            // Parse response into normalized format
+            const parsed = this.parseCommitResponse(response.data);
+
+            // Update rate limit state
+            await this.rateLimitService.updateRateLimitFromHeaders(userId, response.headers);
+
+            // Cache result (TTL: 1h)
+            await this.redisClient.set(cacheKey,
+                JSON.stringify(parsed),
+                'EX',
+                60 * 60
+            );
+            return parsed;
         } catch (error) {
+            console.error('[GithubService] Failed to fetch commits', {
+                owner,
+                repo,
+                sha,
+                message: error.message
+            });
             this._handleGithubError(error);
         }
+    }
+
+    /**
+     * Parse GitHub commit API response
+     */
+    parseCommitResponse(commitData) {
+        try {
+            const additions = commitData.stats?.additions || 0;
+            const deletions = commitData.stats?.deletions || 0;
+            const files = commitData.files || [];
+
+            const filesChanged = files.map(file => ({
+                filename: file.filename,
+                additions: file.additions,
+                deletions: file.deletions,
+            }));
+
+            const complexity = this._calculateComplexity(
+                additions,
+                deletions,
+                filesChanged
+            );
+
+            return {
+                githubSha: commitData.sha,
+                message: commitData.commit?.message || '',
+                additions,
+                deletions,
+                totalChanges: additions + deletions,
+                filesChangedCount: files.length,
+                files: filesChanged,
+                complexity
+            };
+        } catch (error) {
+            console.error('[GitHubService] Parse commit response error:', error);
+            throw new AppError(
+                'Commit parse failed',
+                500,
+                'COMMIT_PARSE_FAILED'
+            );
+        }
+    }
+
+    /**
+     * Calculate commit complexity
+     */
+    _calculateComplexity(additions, deletions, filesChanged) {
+        const fileCount = filesChanged.length || 1;
+
+        // Total churn
+        const churn = additions + deletions;
+
+        // Normalize churn per file
+        const avgChangePerFile = churn / fileCount;
+
+        // Log scale to avoid huge commits dominating
+        const normalizedChurn = Math.log10(churn + 1) * 100;
+
+        // File spread impact
+        const fileImpact = Math.log2(fileCount + 1) * 40;
+
+        // Detect wide vs concentrated changes
+        const spreadFactor = avgChangePerFile < 50 ? 30 : 0;
+
+        // Final score
+        const score = normalizedChurn + fileImpact + spreadFactor;
+
+        if (score < 120) return 'low';
+        if (score < 300) return 'medium';
+        return 'high';
     }
 
     _handleGithubError(error) {
@@ -106,7 +217,7 @@ class GithubService {
 
         if (error.response?.status === 404) {
             throw new AppError(
-                'Repository not found',
+                'Repository or commit not found',
                 404,
                 'REPO_NOT_FOUND'
             );
