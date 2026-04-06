@@ -1,5 +1,4 @@
 import { redisClient } from "../config/redis.js";
-import AppError from "../errors/AppError.js";
 
 class RateLimitService {
     // Get current rate limit status for user
@@ -28,32 +27,37 @@ class RateLimitService {
             const limit = parseInt(headers['x-ratelimit-limit'] || '5000', 10);
             const reset = parseInt(headers['x-ratelimit-reset'] || Date.now() / 1000, 10);
 
+            console.log(`[Ratelimit] ${remaining}/${limit} remaining (user: ${userId})`);
+
             const status = {
                 remaining,
                 limit,
                 reset,
-                updatedAt: new Date()
+                updatedAt: new Date().toISOString()
             };
 
             const key = `rate-limit:${userId}`;
-            const ttl = Math.max(reset - Math.floor(Date.now() / 1000), 3600);
+            const now = Math.floor(Date.now() / 1000);
+            const ttl = Math.max(reset - now, 1);
 
             await redisClient.set(key, JSON.stringify(status), {
                 EX: ttl
             });
 
             if (remaining < Math.max(100, limit * 0.05)) {
-                console.warn(`[Ratelimit] Low remaining: ${remaining}/${limit} for user ${userId}`);
+                console.warn(`[Ratelimit] Low remaining: ${remaining}/${limit} for user ${userId}, resets at ${new Date(reset * 1000)}`);
             }
             return status;
         } catch (error) {
             console.error(`[Ratelimit] Error updating status: ${error.message}`);
+            // Don't throw - continue processing
+            return null;
         }
     }
 
     /**
      * Check if user can make API request
-     * Returns true if enough remaining quota
+     * Returns true if enough quota available
      */
     async checkCanMakeRequest(userId, requestsNeeded = 1) {
         try {
@@ -63,13 +67,13 @@ class RateLimitService {
                 return true;
             }
 
-            const canMake = status.remaining >= requestsNeeded;
-            if (!canMake) {
-                console.warn(`[Ratelimit] Not enough quota for ${userId}: ${status.remaining} remaining, need ${requestsNeeded}`);
+            if (status.remaining <= 0) {
+                console.warn(`[Ratelimit] Cached remaining is 0, but may be stale. Allowing request.`);
+                return true;
             }
-            return canMake;
         } catch (error) {
             console.error(`[Ratelimit] Error checking quota: ${error.message}`);
+            // Fail open - allow request
             return true;
         }
     }
@@ -82,14 +86,17 @@ class RateLimitService {
         try {
             const status = await this.getRateLimitStatus(userId);
             if (!status) {
-                throw new AppError('No rate limit status cached', 404, 'RATE_LIMIT_NOT_FOUND');
+                console.warn(`[Ratelimit] No rate limit status cached`);
+                return;
             }
 
             const now = Math.floor(Date.now() / 1000);
             const waitSeconds = Math.max(status.reset - now, 0);
 
             if (waitSeconds > 0) {
-                console.log(`[Ratelimit] Waiting ${waitSeconds}s for reset: ${userId}`);
+                console.log(
+                    `[Ratelimit] Waiting ${waitSeconds}s for reset (until ${new Date(status.reset * 1000)})`
+                );
 
                 return new Promise((resolve) => {
                     setTimeout(() => {

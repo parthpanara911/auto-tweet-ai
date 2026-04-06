@@ -76,6 +76,7 @@ class WebhookController {
                 }
 
                 const job = await commitProcessingQueue.add(
+                    'commit-processing',
                     {
                         commitSha: commit.githubSha,
                         repositoryId: webhook.repositoryId,

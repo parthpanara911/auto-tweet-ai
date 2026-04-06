@@ -36,10 +36,6 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
-    // workspaceId: {
-    //     type: mongoose.Schema.Types.ObjectId,
-    //     ref: "Workspace",
-    // },
     lastLoginAt: {
         type: Date,
         default: Date.now,
@@ -51,6 +47,4 @@ const userSchema = new mongoose.Schema({
     deletedAt: Date,
 }, { timestamps: true });
 
-// userSchema.index({ workspaceId: 1, isActive: 1 });
-
-export const User = mongoose.model('User', userSchema);
+export default mongoose.model('User', userSchema);

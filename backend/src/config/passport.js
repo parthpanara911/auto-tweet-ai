@@ -1,7 +1,7 @@
 import passport from "passport";
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import { encrypt } from "../utils/encryption.js";
-import { User } from "../db/models/User.js";
+import User from "../db/models/User.js";
 import config from "../config/environment.js";
 
 passport.use(

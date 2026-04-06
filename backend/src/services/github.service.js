@@ -1,11 +1,12 @@
 import axios from "axios";
+import CommitService from "./commit.service.js";
+import RateLimitService from './rate-limit.service.js';
 import AppError from "../errors/AppError.js";
 
 class GithubService {
-    constructor(accessToken, { redisClient, rateLimitService }) {
+    constructor({ accessToken, redisClient }) {
         this.accessToken = accessToken;
         this.redisClient = redisClient;
-        this.rateLimitService = rateLimitService;
         this.client = axios.create({
             baseURL: 'https://api.github.com',
             headers: {
@@ -90,13 +91,17 @@ class GithubService {
             // Check Redis cache 
             const cached = await this.redisClient.get(cacheKey);
             if (cached) {
-                return JSON.parse(cached);
+                return {
+                    ...JSON.parse(cached),
+                    _fromCache: true
+                };
             }
 
             // Check rate limit before API call
-            const canRequest = await this.rateLimitService.checkCanMakeRequest(userId);
+            const canRequest = await RateLimitService.checkCanMakeRequest(userId);
             if (!canRequest) {
-                await this.rateLimitService.waitForRateLimitReset(userId);
+                console.warn(`[GitHubService] Rate limit hit for ${userId}, waiting...`);
+                await RateLimitService.waitForRateLimitReset(userId);
             }
 
             // Call GitHub API
@@ -108,7 +113,7 @@ class GithubService {
             const parsed = this.parseCommitResponse(response.data);
 
             // Update rate limit state
-            await this.rateLimitService.updateRateLimitFromHeaders(userId, response.headers);
+            await RateLimitService.updateRateLimitFromHeaders(userId, response.headers);
 
             // Cache result (TTL: 1h)
             await this.redisClient.set(cacheKey,
@@ -116,7 +121,10 @@ class GithubService {
                 'EX',
                 60 * 60
             );
-            return parsed;
+            return {
+                ...parsed,
+                _responseHeaders: response.headers
+            };
         } catch (error) {
             console.error('[GithubService] Failed to fetch commits', {
                 owner,
@@ -143,7 +151,7 @@ class GithubService {
                 deletions: file.deletions,
             }));
 
-            const complexity = this._calculateComplexity(
+            const complexity = CommitService.calculateComplexity(
                 additions,
                 deletions,
                 filesChanged
@@ -167,35 +175,6 @@ class GithubService {
                 'COMMIT_PARSE_FAILED'
             );
         }
-    }
-
-    /**
-     * Calculate commit complexity
-     */
-    _calculateComplexity(additions, deletions, filesChanged) {
-        const fileCount = filesChanged.length || 1;
-
-        // Total churn
-        const churn = additions + deletions;
-
-        // Normalize churn per file
-        const avgChangePerFile = churn / fileCount;
-
-        // Log scale to avoid huge commits dominating
-        const normalizedChurn = Math.log10(churn + 1) * 100;
-
-        // File spread impact
-        const fileImpact = Math.log2(fileCount + 1) * 40;
-
-        // Detect wide vs concentrated changes
-        const spreadFactor = avgChangePerFile < 50 ? 30 : 0;
-
-        // Final score
-        const score = normalizedChurn + fileImpact + spreadFactor;
-
-        if (score < 120) return 'low';
-        if (score < 300) return 'medium';
-        return 'high';
     }
 
     _handleGithubError(error) {

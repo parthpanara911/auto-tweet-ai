@@ -1,6 +1,7 @@
 import GithubService from "../services/github.service.js";
 import RepositoryService from "../services/repository.service.js";
 import { decrypt } from "../utils/encryption.js";
+import { redisClient } from "../config/redis.js";
 import Repository from "../db/models/Repository.js";
 import AppError from "../errors/AppError.js";
 
@@ -10,7 +11,10 @@ class RepositoryController {
             const user = req.user;
 
             const decryptedToken = decrypt(user.githubAccessToken);
-            const githubService = new GithubService(decryptedToken);
+            const githubService = new GithubService({
+                accessToken: decryptedToken,
+                redisClient
+            });
 
             const syncedRepos = await RepositoryService.syncUserRepositories(
                 user,
@@ -74,7 +78,10 @@ class RepositoryController {
             }
 
             const decryptedToken = decrypt(user.githubAccessToken);
-            const githubService = new GithubService(decryptedToken);
+            const githubService = new GithubService({
+                accessToken: decryptedToken,
+                redisClient
+            });
 
             const repo = await RepositoryService.addRepositoryToTracking(
                 user._id,

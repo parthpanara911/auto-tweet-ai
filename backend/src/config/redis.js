@@ -52,7 +52,8 @@ const initQueue = () => {
             },
             timeout: 30000,
             removeOnComplete: {
-                age: 3600
+                age: 3600,
+                count: 500
             },
             removeOnFail: false
         }
@@ -85,14 +86,4 @@ const initQueue = () => {
     return commitProcessingQueue;
 };
 
-const registerProcessors = () => {
-    if (!commitProcessingQueue) {
-        throw new Error("Queue not initialized");
-    }
-
-    commitProcessingQueue.process(5, async (job) => {
-        console.log("Processing job:", job.data);
-    });
-};
-
-export { initRedis, initQueue, registerProcessors, redisClient, commitProcessingQueue };
+export { initRedis, initQueue, redisClient, commitProcessingQueue };
