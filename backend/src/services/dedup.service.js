@@ -81,6 +81,30 @@ class DedupService {
             );
         }
     }
+
+    /**
+     * Clear all dedup cache for a user
+     */
+    async clearUserCache(userId) {
+        try {
+            const pattern = `webhook:commit:*`;
+            const keys = await redisClient.keys(pattern);
+
+            if (keys.length === 0) return 0;
+
+            let deleted = 0;
+            for (const key of keys) {
+                const result = await redisClient.del(key);
+                if (result) deleted++;
+            }
+
+            console.log(`[Dedup] Cleared ${deleted} cache entries for user ${userId}`);
+            return deleted;
+        } catch (error) {
+            console.error(`[Dedup] Error clearing user cache: ${error.message}`);
+            return 0;
+        }
+    }
 }
 
 export default new DedupService();

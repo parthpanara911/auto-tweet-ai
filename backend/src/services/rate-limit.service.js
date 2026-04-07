@@ -110,6 +110,23 @@ class RateLimitService {
             console.error(`[Ratelimit] Error waiting for reset: ${error.message}`);
         }
     }
+
+    /**
+     * Clear rate limit cache for user
+     */
+    async clearUserCache(userId) {
+        try {
+            const key = `rate-limit:${userId}`;
+            const result = await redisClient.del(key);
+            if (result) {
+                console.log(`[RateLimit] Cleared cache for user ${userId}`);
+            }
+            return result;
+        } catch (error) {
+            console.error(`[RateLimit] Error clearing cache: ${error.message}`);
+            return false;
+        }
+    }
 }
 
 export default new RateLimitService();
