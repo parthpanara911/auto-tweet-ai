@@ -30,12 +30,18 @@ const userSchema = new mongoose.Schema({
     },
     githubAccessToken: {
         type: String,
-        required: true,
+        required: false,
     },
     githubTokenEncrypted: {
         type: Boolean,
         default: false,
     },
+    githubTokenRevoked: {
+        type: Boolean,
+        default: false,
+        index: true
+    },
+    tokenRevokedAt: Date,
     lastLoginAt: {
         type: Date,
         default: Date.now,
