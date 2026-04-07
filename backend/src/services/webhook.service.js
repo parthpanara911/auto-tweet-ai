@@ -34,26 +34,12 @@ class WebhookService {
 
             const existingWebhook = await Webhook.findOne({ repositoryId });
 
-            if (existingWebhook) {
-                if (existingWebhook.isActive) {
-                    throw new AppError(
-                        'Webhook already exists for this repository',
-                        409,
-                        'WEBHOOK_EXISTS'
-                    );
-                }
-
-                existingWebhook.isActive = true;
-                await existingWebhook.save();
-
-                return {
-                    id: existingWebhook._id,
-                    githubId: existingWebhook.githubId,
-                    repositoryId: existingWebhook.repositoryId,
-                    url: existingWebhook.url,
-                    isActive: existingWebhook.isActive,
-                    createdAt: existingWebhook.createdAt
-                };
+            if (existingWebhook && existingWebhook.isActive) {
+                throw new AppError(
+                    'Webhook already exists for this repository',
+                    409,
+                    'WEBHOOK_EXISTS'
+                );
             }
 
             // ======= Generate random secret =======
@@ -103,7 +89,7 @@ class WebhookService {
 
             await webhook.save();
 
-            console.log(`Webhook registered: GitHub ID ${githubWebhookId} for repo ${repository.fullName}`);
+            console.log(`[Webhook] Registered: GitHub ID ${githubWebhookId} for repo ${repository.fullName}`);
 
             return {
                 id: webhook._id,
@@ -140,7 +126,7 @@ class WebhookService {
             }
 
             // ======= Fetch webhook =======
-            const webhook = await Webhook.findOne({ githubId: webhookId })
+            const webhook = await Webhook.findById(webhookId)
                 .populate('repositoryId', 'fullName')
                 .exec();
 
@@ -160,6 +146,14 @@ class WebhookService {
                 );
             }
 
+            if (!webhook.isActive) {
+                return {
+                    id: webhook._id,
+                    githubId: webhook.githubId,
+                    isActive: false
+                };
+            }
+
             // ======= Call GitHub API to delete =======
             const { fullName } = webhook.repositoryId;
             const githubApiUrl = `https://api.github.com/repos/${fullName}/hooks/${webhook.githubId}`;
@@ -171,12 +165,20 @@ class WebhookService {
                     githubAccessToken
                 );
 
-                console.log(`Webhook deleted from GitHub: ${webhook.githubId}`);
+                console.log(`[Webhook] Deleted from GitHub: ${webhook.githubId}`);
             } catch (error) {
-                if (error.statusCode !== 404) {
+                const status =
+                    error.statusCode ||
+                    error.status ||
+                    error.response?.status;
+
+                if (status !== 404) {
                     throw error;
                 }
-                console.warn(`Webhook already deleted on GitHub: ${webhook.githubId}`);
+
+                console.warn(
+                    `[Webhook] Already deleted on GitHub: ${webhook.githubId}`
+                );
             }
 
             webhook.isActive = false;
@@ -222,7 +224,7 @@ class WebhookService {
             const response = await axios(config);
             return response;
         } catch (error) {
-            return this._handleGitHubError(error);
+            this._handleGitHubError(error);
         }
     }
 

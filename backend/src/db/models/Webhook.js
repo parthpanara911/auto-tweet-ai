@@ -41,5 +41,6 @@ const webhookSchema = new mongoose.Schema({
 });
 
 webhookSchema.index({ userId: 1, isActive: 1 });
+webhookSchema.index({ isActive: 1, createdAt: 1 });
 
 export default mongoose.model('Webhook', webhookSchema);
