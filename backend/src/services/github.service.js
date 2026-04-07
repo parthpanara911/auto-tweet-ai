@@ -115,11 +115,11 @@ class GithubService {
             // Update rate limit state
             await RateLimitService.updateRateLimitFromHeaders(userId, response.headers);
 
-            // Cache result (TTL: 1h)
-            await this.redisClient.set(cacheKey,
+            // Cache result 
+            await this.redisClient.set(
+                cacheKey,
                 JSON.stringify(parsed),
-                'EX',
-                60 * 60
+                { EX: 3600 }
             );
             return {
                 ...parsed,
