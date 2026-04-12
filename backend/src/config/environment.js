@@ -19,7 +19,8 @@ const config = {
     REDIS_URL: process.env.REDIS_URL,
 
     WEBHOOK_BASE_URL: process.env.WEBHOOK_BASE_URL || 'http://localhost:5000',
-    WEBHOOK_TIMEOUT: process.env.WEBHOOK_TIMEOUT || 30000,
+
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 };
 
 export default config;
