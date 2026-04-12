@@ -33,6 +33,13 @@ const tweetSchema = new mongoose.Schema(
             default: 'draft',
             index: true,
         },
+        metadata: {
+            commitCount: Number,
+            mainLanguages: {
+                type: [String],
+                default: [],
+            },
+        },
         twitterMetadata: {
             tweetId: String,
             url: String,
