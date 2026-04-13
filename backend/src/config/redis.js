@@ -1,13 +1,7 @@
-/** Initialize Redis client and Bull queue
- * Central point for all Redis operations
- * Configures queue settings for async commit processing
-**/
 import { createClient } from "redis";
-import Queue from "bull";
 import config from "../config/environment.js";
 
 let redisClient;
-let commitProcessingQueue;
 
 const initRedis = async () => {
     redisClient = createClient({
@@ -39,51 +33,4 @@ const initRedis = async () => {
     return redisClient;
 };
 
-const initQueue = () => {
-    commitProcessingQueue = new Queue('commit-processing', {
-        redis: {
-            url: config.REDIS_URL
-        },
-        defaultJobOptions: {
-            attempts: 3,
-            backoff: {
-                type: 'exponential',
-                delay: 1000
-            },
-            timeout: 30000,
-            removeOnComplete: {
-                age: 3600,
-                count: 500
-            },
-            removeOnFail: false
-        }
-    });
-
-    commitProcessingQueue.on('ready', () => {
-        console.log('Bull queue ready');
-    });
-
-    commitProcessingQueue.on('completed', (job) => {
-        console.log(`Job ${job.id} completed`);
-    });
-
-    commitProcessingQueue.on('failed', (job, err) => {
-        console.log(`Job ${job.id} failed: ${err.message}`);
-    });
-
-    commitProcessingQueue.on('error', (error) => {
-        console.log(`Queue error: ${error.message}`);
-    });
-
-    commitProcessingQueue.on('stalled', (job) => {
-        console.log(`Job ${job.id} stalled`);
-    });
-
-    commitProcessingQueue.on('waiting', (jobId) => {
-        console.log(`Job ${jobId} waiting in queue`);
-    });
-
-    return commitProcessingQueue;
-};
-
-export { initRedis, initQueue, redisClient, commitProcessingQueue };
+export { initRedis, redisClient };
