@@ -1,4 +1,3 @@
-import { commitProcessingQueue } from "../../config/redis.js";
 import Commit from "../../db/models/Commit.js";
 import Repository from "../../db/models/Repository.js";
 import User from "../../db/models/User.js";
@@ -242,5 +241,3 @@ function _extractTags(message) {
 
     return [...new Set(tags)];
 }
-
-export default commitProcessingQueue;
