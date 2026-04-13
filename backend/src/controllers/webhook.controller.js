@@ -1,7 +1,7 @@
 import DedupService from "../services/dedup.service.js";
 import WebhookEventService from "../services/webhook-event.service.js";
 import WebhookEventLog from "../db/models/WebhookEventLog.js";
-import { commitProcessingQueue } from "../config/redis.js";
+import { commitProcessingQueue } from "../queue/bull.js";
 import { decrypt } from "../utils/encryption.js";
 import WebhookService from "../services/webhook.service.js";
 import Webhook from "../db/models/Webhook.js";
