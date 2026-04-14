@@ -7,7 +7,8 @@ import { decrypt } from "../utils/encryption.js";
 import WebhookService from "../services/webhook.service.js";
 import DedupService from "../services/dedup.service.js";
 import RateLimitService from "../services/rate-limit.service.js";
-import { commitProcessingQueue, redisClient } from "../config/redis.js";
+import { redisClient } from "../config/redis.js";
+import { commitProcessingQueue } from "../queue/bull.js";
 import AppError from "../errors/AppError.js";
 
 const router = express.Router();
