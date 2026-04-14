@@ -10,7 +10,12 @@ import errorHandler from "./middleware/errorHandler.js";
 const app = express();
 
 app.use(cors());
-app.use('/api/webhooks/github/:webhookId', express.raw({ type: 'application/json' }));
+app.use('/api/webhooks/github', express.raw({
+    type: '*/*',
+    verify: (req, res, buf) => {
+        req.rawBody = buf;
+    }
+}));
 app.use(express.json());
 app.use(passport.initialize());
 

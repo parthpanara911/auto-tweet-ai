@@ -14,6 +14,7 @@ class WebhookSignatureService {
                 'SIGNATURE_MISSING'
             );
         }
+
         if (!payload) {
             throw new AppError(
                 'Missing payload for webhook verification',
@@ -24,17 +25,9 @@ class WebhookSignatureService {
 
         const [algorithm, providedHash] = signature.split('=');
 
-        if (algorithm !== 'sha256') {
+        if (algorithm !== 'sha256' || !providedHash) {
             throw new AppError(
-                `Invalid signature algorithm: ${algorithm}. Expected sha256`,
-                401,
-                'INVALID_ALGORITHM'
-            );
-        }
-
-        if (!providedHash) {
-            throw new AppError(
-                'Signature format is invalid',
+                'Invalid signature format',
                 401,
                 'INVALID_SIGNATURE_FORMAT'
             );
@@ -44,13 +37,14 @@ class WebhookSignatureService {
         hmac.update(payload);
 
         const computedHash = hmac.digest('hex');
-
         try {
-            const isValid = crypto.timingSafeEqual(
-                Buffer.from(providedHash),
-                Buffer.from(computedHash)
+            if (providedHash.length !== computedHash.length) {
+                return false;
+            }
+            return crypto.timingSafeEqual(
+                Buffer.from(providedHash, 'hex'),
+                Buffer.from(computedHash, 'hex')
             );
-            return isValid;
         } catch (error) {
             throw new AppError(
                 'Webhook signature verification failed',

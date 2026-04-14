@@ -6,33 +6,12 @@ import AppError from "../errors/AppError.js";
 
 async function verifyWebhookSignature(req, res, next) {
     try {
-        const { webhookId } = req.params;
         const signature = req.headers['x-hub-signature-256'];
         const deliveryId = req.headers['x-github-delivery'];
         const eventType = req.headers['x-github-event'];
-
-        const payload = req.body;
-
-        console.log(
-            `Webhook received: webhookId=${webhookId}, deliveryID=${deliveryId}, event=${eventType}`
-        );
+        const githubHookId = Number(req.headers['x-github-hook-id']);
 
         if (!signature) {
-            console.warn('[Webhook] Missing X-Hub-Signature-256 header');
-
-            if (webhookId) {
-                await WebhookEventLog.create({
-                    webhookId: null,
-                    githubDeliveryId: deliveryId,
-                    payload: {},
-                    signatureValid: false,
-                    status: 'received',
-                    errorMessage: 'Missing signature header'
-                }).catch((err) => {
-                    console.error('Failed to log webhook event:', err.message);
-                });
-            }
-
             throw new AppError(
                 'Missing webhook signature',
                 400,
@@ -48,116 +27,62 @@ async function verifyWebhookSignature(req, res, next) {
             );
         }
 
+        if (!githubHookId || Number.isNaN(githubHookId)) {
+            throw new AppError(
+                'Missing or invalid GitHub hook ID',
+                400,
+                'MISSING_HOOK_ID'
+            );
+        }
+
+        if (!req.rawBody) {
+            throw new AppError('Raw body missing', 500, 'MISSING_RAW_BODY');
+        }
+
         // ======= Load webhook from db =======
-        const webhook = await Webhook.findOne({ githubId: webhookId });
+        const webhook = await Webhook.findOne({
+            githubId: githubHookId,
+            isActive: true
+        }).select('+secret');
 
         if (!webhook) {
-            console.warn(`Webhook not found: ${webhookId}`);
-
-            await WebhookEventLog.create({
-                webhookId: null,
-                githubDeliveryId: deliveryId,
-                signatureValid: false,
-                status: 'received',
-                errorMessage: 'Webhook not found'
-            }).catch((err) => {
-                console.error('Failed to log webhook event:', err.message);
-            });
-
-            throw new AppError(
-                'Webhook not found',
-                404,
-                'WEBHOOK_NOT_FOUND'
-            );
+            console.warn(`[Webhook] No webhook found for GitHub ID: ${githubHookId}`);
+            throw new AppError('Webhook not found', 404, 'WEBHOOK_NOT_FOUND');
         }
 
-        if (!webhook.isActive) {
-            console.warn(`Webhook is inactive: ${webhookId}`);
-
-            await WebhookEventLog.create({
-                webhookId: webhook._id,
-                githubDeliveryId: deliveryId,
-                signatureValid: false,
-                status: 'received',
-                errorMessage: 'Webhook is inactive'
-            }).catch((err) => {
-                console.error('Failed to log webhook event:', err.message);
-            });
-
+        if (!webhook.secret) {
             throw new AppError(
-                'Webhook is inactive',
-                404,
-                'WEBHOOK_INACTIVE'
-            );
-        }
-
-        // ======= Decrypt webhook secret =======
-        let decryptedSecret;
-        try {
-            decryptedSecret = decrypt(webhook.secret);
-        } catch (error) {
-            console.error(`[Webhook] Failed to decrypt secret: ${error.message}`);
-
-            throw new AppError(
-                'Failed to decrypt webhook secret',
+                'Webhook secret not found',
                 500,
-                'DECRYPTION_ERROR'
+                'SECRET_MISSING'
             );
         }
 
-        // ======= Verify signature =======
-        let isSignatureValid = false;
-        let signatureError = null;
+        const secret = decrypt(webhook.secret);
 
-        try {
-            isSignatureValid = WebhookSignatureService.verifySignature(payload, signature, decryptedSecret);
-            req.body = JSON.parse(payload.toString('utf-8'));
-            console.log(`[Webhook] Signature verified successfully: ${webhookId}`);
-        } catch (error) {
-            signatureError = error;
-            console.warn(`[Webhook] Signature verification failed: ${error.message}`);
+        const isValid = WebhookSignatureService.verifySignature(
+            req.rawBody,
+            signature,
+            secret
+        );
 
-            await WebhookEventLog.create({
-                webhookId: webhook._id,
-                githubDeliveryId: deliveryId,
-                signatureValid: false,
-                status: 'received',
-                errorMessage: error.message
-            }).catch((err) => {
-                console.error('Failed to log webhook event:', err.message);
-            });
-
-            throw new AppError(
-                'Invalid webhook signature',
-                401,
-                'INVALID_SIGNATURE'
-            );
+        if (!isValid) {
+            throw new AppError('Invalid signature', 401, 'INVALID_SIGNATURE');
         }
+
+        console.log(`[Webhook] Signature verified for webhook ${webhook._id}`);
 
         // ======= Attach to request =======
         req.webhook = webhook;
         req.deliveryId = deliveryId;
         req.eventType = eventType;
+        req.payload = JSON.parse(req.rawBody.toString('utf-8'));
 
-        // ======= Parse payload =======
-        try {
-            req.payload = JSON.parse(payload);
-        } catch (error) {
-            console.error(`[Webhook] Failed to parse payload: ${error.message}`);
-
-            throw new AppError(
-                'Invalid JSON payload',
-                400,
-                'INVALID_JSON'
-            );
-        }
-
-        // ================================================== 
         next();
     } catch (error) {
         if (!(error instanceof AppError)) {
             console.error(
-                '[Webhook] Unexpected error in signature verification:', error
+                '[Webhook] Unexpected error:', error
             );
             error = new AppError(
                 'Webhook verification failed',
