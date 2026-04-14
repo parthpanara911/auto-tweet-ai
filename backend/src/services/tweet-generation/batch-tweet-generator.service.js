@@ -8,6 +8,7 @@ class BatchTweetGeneratorService {
         this.aiProvider = new AIProviderService();
         this.commitBatchSize = 3;
         this.minCommitsForTweet = 1;
+        this.maxCommitLimit = 5;
     }
 
     async generateDailyTweets(userId) {
@@ -86,6 +87,16 @@ class BatchTweetGeneratorService {
     async generateOnDemandTweet(userId, commitIds = null) {
         try {
             console.log('Generating on-demand tweet', { userId, commitIds });
+
+            if (commitIds && Array.isArray(commitIds)) {
+                if (commitIds.length > this.maxCommitLimit) {
+                    throw new AppError(
+                        'Maximum 5 commits allowed per tweet',
+                        400,
+                        'COMMIT_LIMIT_EXCEEDED'
+                    );
+                }
+            }
 
             let commits;
             if (commitIds && Array.isArray(commitIds) && commitIds.length > 0) {
