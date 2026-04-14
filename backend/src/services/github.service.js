@@ -97,13 +97,6 @@ class GithubService {
                 };
             }
 
-            // Check rate limit before API call
-            const canRequest = await RateLimitService.checkCanMakeRequest(userId);
-            if (!canRequest) {
-                console.warn(`[GitHubService] Rate limit hit for ${userId}, waiting...`);
-                await RateLimitService.waitForRateLimitReset(userId);
-            }
-
             // Call GitHub API
             const response = await this.client.get(
                 `/repos/${owner}/${repo}/commits/${sha}`
