@@ -31,7 +31,6 @@ const tweetSchema = new mongoose.Schema(
             type: String,
             enum: ['draft', 'approved', 'posted', 'rejected'],
             default: 'draft',
-            index: true,
         },
         metadata: {
             commitCount: Number,
