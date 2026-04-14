@@ -333,6 +333,10 @@ class TweetService {
                 commitCount: tweet.metadata.commitCount,
                 mainLanguages: tweet.metadata.mainLanguages,
             },
+            ...(tweet.isEdited && {
+                isEdited: tweet.isEdited,
+                editedAt: tweet.editedAt,
+            }),
             createdAt: tweet.createdAt,
             updatedAt: tweet.updatedAt,
             generatedAt: tweet.generatedAt,

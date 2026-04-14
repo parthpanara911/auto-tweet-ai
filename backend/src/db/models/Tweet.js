@@ -19,13 +19,13 @@ const tweetSchema = new mongoose.Schema(
             maxLength: 280,
             trim: true,
         },
-        editedContent: {
-            type: String,
-            maxlength: 280,
-        },
         isEdited: {
             type: Boolean,
             default: false,
+        },
+        editedAt: {
+            type: Date,
+            default: null,
         },
         status: {
             type: String,

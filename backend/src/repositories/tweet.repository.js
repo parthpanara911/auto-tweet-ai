@@ -169,7 +169,7 @@ class TweetRepository {
             const tweet = await Tweet.findOneAndUpdate(
                 { _id: tweetId, status: 'draft' },
                 {
-                    editedContent: newContent,
+                    content: newContent,
                     isEdited: true,
                     editedAt: new Date(),
                 },
