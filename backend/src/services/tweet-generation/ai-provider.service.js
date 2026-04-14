@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import config from "../config/environment.js";
+import config from "../../config/environment.js";
 import AppError from "../../errors/AppError.js";
 
 class AIProviderService {
