@@ -1,4 +1,4 @@
-import { commitProcessingQueue } from "../queue/bull.js";
+import { tweetGenerationQueue } from "../queue/bull.js";
 import TweetService from "../services/tweet-generation/tweet.service.js";
 
 class TweetController {
@@ -15,7 +15,7 @@ class TweetController {
 
             res.json({
                 status: 'success',
-                data: result.data,
+                data: result,
             });
         } catch (error) {
             console.error('[TweetController] Error in getUserTweets', {
@@ -31,11 +31,11 @@ class TweetController {
             const { tweetId } = req.params;
             const userId = req.user._id;
 
-            const tweet = await TweetService.getTweetById(tweetId, userId);
+            const result = await TweetService.getTweetById(tweetId, userId);
 
             res.json({
                 status: 'success',
-                data: tweet.data,
+                data: result,
             });
         } catch (error) {
             console.error('[TweetController] Error in getTweetById', {
@@ -65,7 +65,7 @@ class TweetController {
                 commitIds: commitIds || null,
             };
 
-            const job = await commitProcessingQueue.add('tweet-generation', jobData);
+            const job = await tweetGenerationQueue.add('tweet-generation', jobData);
 
             console.log('[TweetController] Tweet generation job queued', {
                 userId,
@@ -94,7 +94,7 @@ class TweetController {
 
             res.json({
                 status: 'success',
-                data: result.data,
+                data: result,
             });
         } catch (error) {
             console.error('[TweetController] Error in getDraftTweets', {
@@ -115,7 +115,7 @@ class TweetController {
             res.json({
                 status: 'success',
                 message: 'Tweet approved',
-                data: result.data,
+                data: result,
             });
         } catch (error) {
             console.error('[TweetController] Error in approveTweet', {
@@ -166,7 +166,7 @@ class TweetController {
             res.json({
                 status: 'success',
                 message: 'Tweet updated',
-                data: result.data,
+                data: result,
             });
         } catch (error) {
             console.error('[TweetController] Error in editTweet', {
@@ -207,7 +207,7 @@ class TweetController {
 
             res.json({
                 status: 'success',
-                data: stats.data,
+                data: stats,
             });
         } catch (error) {
             console.error('[TweetController] Error in getStats', {
