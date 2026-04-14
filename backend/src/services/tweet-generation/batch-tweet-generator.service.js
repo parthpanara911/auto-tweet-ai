@@ -48,7 +48,7 @@ class BatchTweetGeneratorService {
                 };
             }
 
-            const tweet = await this._saveTweet(userId, commitBatch, aiResult, metadata);
+            const tweet = await this._saveTweet(userId, commitBatch, aiResult, commitContext);
 
             await this._markCommitsAsTweeted(commitBatch, tweet._id);
 
@@ -126,7 +126,7 @@ class BatchTweetGeneratorService {
                 };
             }
 
-            const tweet = await this._saveTweet(userId, commits, aiResult, metadata);
+            const tweet = await this._saveTweet(userId, commits, aiResult, commitContext);
 
             await this._markCommitsAsTweeted(commits, tweet._id);
 
@@ -261,7 +261,7 @@ class BatchTweetGeneratorService {
         return context;
     }
 
-    async _saveTweet(userId, commits, aiResult, metadata) {
+    async _saveTweet(userId, commits, aiResult, commitContext) {
         const metadata = {
             commitCount: commitContext.metadata.commitCount,
             mainLanguages: commitContext.tech.languages,
