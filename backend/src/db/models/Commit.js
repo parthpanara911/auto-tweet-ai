@@ -27,6 +27,7 @@ const commitSchema = new mongoose.Schema({
     additions: { type: Number, default: 0 },
     deletions: { type: Number, default: 0 },
     filesChanged: { type: Number, default: 0 },
+    files: [String],
     timestamp: {
         type: Date,
         required: true,
@@ -56,7 +57,6 @@ const commitSchema = new mongoose.Schema({
         index: true,
     },
     metadata: {
-        files: [String],
         complexity: { type: String, enum: ['low', 'medium', 'high'] },
         tags: [String],
     },

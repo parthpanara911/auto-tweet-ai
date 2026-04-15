@@ -23,6 +23,7 @@ const webhookSchema = new mongoose.Schema({
     secret: {
         type: String,
         required: true,
+        select: false,
     },
     isActive: {
         type: Boolean,

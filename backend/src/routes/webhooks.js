@@ -6,9 +6,7 @@ import WebhookController from "../controllers/webhook.controller.js";
 const router = express.Router();
 
 // GitHub webhook receiver endpoint
-router.post('/github/:webhookId',
-    express.raw({ type: 'application/json' }),
-    verifyWebhookSignature,
+router.post('/github', verifyWebhookSignature,
     (req, res, next) => WebhookController.handleGitHubWebhook(req, res, next)
 );
 

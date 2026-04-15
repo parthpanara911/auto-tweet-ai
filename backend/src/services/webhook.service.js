@@ -19,7 +19,6 @@ class WebhookService {
                 );
             }
 
-            // ======= Fetch repo details =======
             const repository = await Repository.findById(repositoryId)
                 .select('fullName')
                 .exec();
@@ -32,72 +31,129 @@ class WebhookService {
                 );
             }
 
-            const existingWebhook = await Webhook.findOne({ repositoryId });
-
-            if (existingWebhook && existingWebhook.isActive) {
-                throw new AppError(
-                    'Webhook already exists for this repository',
-                    409,
-                    'WEBHOOK_EXISTS'
-                );
-            }
-
-            // ======= Generate random secret =======
-            const secret = crypto.randomBytes(32).toString('hex');
-
-            const githubApiUrl = `https://api.github.com/repos/${repository.fullName}/hooks`;
-
-            const response = await this._callGitHubAPI(
-                'POST',
-                githubApiUrl,
-                githubAccessToken,
-                {
-                    name: 'web',
-                    active: true,
-                    events: ['push'],
-                    config: {
-                        url: webhookUrl,
-                        content_type: 'json',
-                        secret: secret,
-                        insecure_ssl: '0'
-                    }
-                }
-            );
-
-            const githubWebhookId = response.data.id;
-
-            if (!githubWebhookId) {
-                throw new AppError(
-                    'Github API did not return webhook ID',
-                    500,
-                    'GITHUB_API_ERROR'
-                );
-            }
-
-            // ======= Encrypt secret =======
-            const encryptedSecret = encrypt(secret);
-
-            // ======= Save to database =======
-            const webhook = new Webhook({
-                githubId: githubWebhookId,
-                repositoryId,
+            // ======= Find existing webhook =======
+            const existingWebhook = await Webhook.findOne({
                 userId,
-                secret: encryptedSecret,
-                url: webhookUrl,
-                isActive: true
+                repositoryId
             });
 
-            await webhook.save();
+            // Generate new secret every time
+            const secret = crypto.randomBytes(32).toString('hex');
+            const encryptedSecret = encrypt(secret);
 
-            console.log(`[Webhook] Registered: GitHub ID ${githubWebhookId} for repo ${repository.fullName}`);
+            let githubWebhookId;
+
+            // ======= Create New =======
+            if (!existingWebhook) {
+                const githubApiUrl = `https://api.github.com/repos/${repository.fullName}/hooks`;
+
+                const response = await this._callGitHubAPI(
+                    'POST',
+                    githubApiUrl,
+                    githubAccessToken,
+                    {
+                        name: 'web',
+                        active: true,
+                        events: ['push'],
+                        config: {
+                            url: webhookUrl,
+                            content_type: 'json',
+                            secret: secret,
+                            insecure_ssl: '0'
+                        }
+                    }
+                );
+
+                githubWebhookId = response.data.id;
+
+                const webhook = new Webhook({
+                    githubId: githubWebhookId,
+                    repositoryId,
+                    userId,
+                    secret: encryptedSecret,
+                    url: webhookUrl,
+                    isActive: true
+                });
+
+                await webhook.save();
+
+                console.log(`[Webhook] Registered: GitHub ID ${githubWebhookId} for repo ${repository.fullName}`);
+
+                return {
+                    id: webhook._id,
+                    githubId: webhook.githubId,
+                    repositoryId,
+                    url: webhook.url,
+                    isActive: true,
+                };
+            }
+
+            // ======= Update Existing =======
+            const githubApiUrl = `https://api.github.com/repos/${repository.fullName}/hooks/${existingWebhook.githubId}`;
+
+            try {
+                // Update webhook on GitHub
+                await this._callGitHubAPI(
+                    'PATCH',
+                    githubApiUrl,
+                    githubAccessToken,
+                    {
+                        config: {
+                            url: webhookUrl,
+                            content_type: 'json',
+                            secret: secret,
+                            insecure_ssl: '0'
+                        },
+                        active: true
+                    }
+                );
+
+                githubWebhookId = existingWebhook.githubId;
+
+                console.log(`[Webhook] Updated GitHub webhook: ${existingWebhook.githubId}`);
+            } catch (error) {
+                // If webhook not found on GitHub, recreate it
+                if (error.statusCode === 404 || error.status === 404) {
+                    console.warn(`[Webhook] GitHub webhook not found (${existingWebhook.githubId}), creating new one...`);
+
+                    const response = await this._callGitHubAPI(
+                        'POST',
+                        `https://api.github.com/repos/${repository.fullName}/hooks`,
+                        githubAccessToken,
+                        {
+                            name: 'web',
+                            active: true,
+                            events: ['push'],
+                            config: {
+                                url: webhookUrl,
+                                content_type: 'json',
+                                secret: secret,
+                                insecure_ssl: '0'
+                            }
+                        }
+                    );
+
+                    githubWebhookId = response.data.id;
+                } else {
+                    throw error;
+                }
+            }
+
+            // Update DB
+            existingWebhook.githubId = githubWebhookId;
+            existingWebhook.secret = encryptedSecret;
+            existingWebhook.url = webhookUrl;
+            existingWebhook.isActive = true;
+            existingWebhook.failureCount = 0;
+
+            await existingWebhook.save();
 
             return {
-                id: webhook._id,
-                githubId: webhook.githubId,
-                repositoryId: webhook.repositoryId,
-                url: webhook.url,
-                isActive: webhook.isActive,
-                createdAt: webhook.createdAt
+                id: existingWebhook._id,
+                githubId: existingWebhook.githubId,
+                repositoryId,
+                url: existingWebhook.url,
+                isActive: true
             };
         } catch (error) {
             if (error instanceof AppError) {

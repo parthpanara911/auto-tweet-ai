@@ -146,7 +146,7 @@ class WebhookController {
 
             const githubAccessToken = decrypt(user.githubAccessToken);
 
-            const webhookUrl = `${process.env.WEBHOOK_BASE_URL}/webhooks/github`;
+            const webhookUrl = `${process.env.WEBHOOK_BASE_URL}/api/webhooks/github`;
 
             const webhook = await WebhookService.registerWebhook(
                 user._id,
@@ -217,7 +217,8 @@ class WebhookController {
             ]);
 
             return res.json({
-                webhooks,
+                status: 'success',
+                data: webhooks,
                 pagination: {
                     total,
                     page: finalPage,
@@ -264,7 +265,8 @@ class WebhookController {
             ]);
 
             return res.json({
-                events,
+                status: 'success',
+                data: events,
                 pagination: {
                     total,
                     page: finalPage,
