@@ -79,6 +79,10 @@ class WebhookService {
 
                 console.log(`[Webhook] Registered: GitHub ID ${githubWebhookId} for repo ${repository.fullName}`);
 
+                await Repository.findByIdAndUpdate(repositoryId, {
+                    isTracking: true
+                });
+
                 return {
                     id: webhook._id,
                     githubId: webhook.githubId,
@@ -147,6 +151,10 @@ class WebhookService {
             existingWebhook.failureCount = 0;
 
             await existingWebhook.save();
+
+            await Repository.findByIdAndUpdate(repositoryId, {
+                isTracking: true
+            });
 
             return {
                 id: existingWebhook._id,
@@ -239,6 +247,11 @@ class WebhookService {
 
             webhook.isActive = false;
             await webhook.save();
+
+            await Repository.findByIdAndUpdate(
+                webhook.repositoryId._id,
+                { isTracking: false }
+            );
 
             return {
                 id: webhook._id,
