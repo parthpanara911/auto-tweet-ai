@@ -23,6 +23,16 @@ const Sidebar = () => {
         </NavLink>
 
         <NavLink
+          to="/repositories"
+          className={({ isActive }) =>
+            `${navLinkBase} ${isActive ? 'bg-gray-900 text-white' : 'hover:bg-gray-900/60'}`
+          }
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+          <span>Repositories</span>
+        </NavLink>
+
+        <NavLink
           to="/commits"
           className={({ isActive }) =>
             `${navLinkBase} ${isActive ? 'bg-gray-900 text-white' : 'hover:bg-gray-900/60'}`
