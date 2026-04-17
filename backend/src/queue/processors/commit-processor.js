@@ -1,4 +1,3 @@
-import { commitProcessingQueue } from "../../config/redis.js";
 import Commit from "../../db/models/Commit.js";
 import Repository from "../../db/models/Repository.js";
 import User from "../../db/models/User.js";
@@ -124,7 +123,6 @@ export const registerCommitProcessor = (queue) => {
             job.log(`Creating commit metadata...`);
 
             const metadata = {
-                files: files.map((f) => f.filename),
                 complexity,
                 tags: _extractTags(commitDetails.message || '')
             };
@@ -146,6 +144,7 @@ export const registerCommitProcessor = (queue) => {
                 additions: commitDetails.additions || 0,
                 deletions: commitDetails.deletions || 0,
                 filesChanged: files.length,
+                files: files.map((f) => f.filename),
                 timestamp: payload.timestamp ? new Date(payload.timestamp) : new Date(),
                 webhookReceivedAt: new Date(),
                 processingStatus: 'completed',
@@ -242,5 +241,3 @@ function _extractTags(message) {
 
     return [...new Set(tags)];
 }
-
-export default commitProcessingQueue;

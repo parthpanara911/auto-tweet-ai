@@ -45,6 +45,17 @@ const commitSchema = new mongoose.Schema({
         default: false,
         index: true,
     },
+    tweeted: {
+        type: Boolean,
+        default: false,
+        index: true,
+    },
+    tweetId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Tweet',
+        default: null,
+        index: true,
+    },
     metadata: {
         complexity: { type: String, enum: ['low', 'medium', 'high'] },
         tags: [String],
@@ -59,5 +70,6 @@ commitSchema.index({ userId: 1, timestamp: -1 });
 commitSchema.index({ repositoryId: 1, timestamp: -1 });
 commitSchema.index({ userId: 1, processingStatus: 1 });
 commitSchema.index({ repositoryId: 1, isProcessed: 1 });
+commitSchema.index({ userId: 1, tweeted: 1 });
 
 export default mongoose.model('Commit', commitSchema);

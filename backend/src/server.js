@@ -1,7 +1,8 @@
 import config from "./config/environment.js";
 import app from "./app.js";
 import connectDB from "./db/connection.js";
-import { initRedis, initQueue } from "./config/redis.js";
+import { initRedis } from "./config/redis.js";
+import { initializeQueues, commitProcessingQueue, tweetGenerationQueue } from "./queue/bull.js";
 import { setupBullBoard } from "./config/bullBoard.js";
 import { setupTestRoutes } from "./routes/test.js";
 
@@ -18,18 +19,21 @@ const startServer = async () => {
             await initRedis();
 
             console.log("Initializing queue...");
-            queue = initQueue();
+            await initializeQueues();
 
-            const { registerCommitProcessor } = await import("./queue/processors/commit-processor.js");
+            setupBullBoard(app, {
+                commitQueue: commitProcessingQueue,
+                tweetQueue: tweetGenerationQueue,
+            });
 
-            registerCommitProcessor(queue);
+            setupTestRoutes(app, {
+                commitQueue: commitProcessingQueue,
+                tweetQueue: tweetGenerationQueue
+            });
 
-            setupBullBoard(app, queue);
-            setupTestRoutes(app, queue);
-
-            const pendingJobs = await queue.count();
-            const activeJobs = await queue.getActiveCount();
-            console.log(`Bull queue initialized (${pendingJobs} pending, ${activeJobs} active)`);
+            const pendingJobs = await commitProcessingQueue.count();
+            const activeJobs = await commitProcessingQueue.getActiveCount();
+            console.log(`Commit queue initialized (${pendingJobs} pending, ${activeJobs} active)`);
         } catch (redisError) {
             console.error("Redis unavailable:", redisError.message);
             console.warn("Running without queue support");
