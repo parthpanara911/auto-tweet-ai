@@ -8,6 +8,8 @@ const config = {
 
     MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/autotweetai',
 
+    FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+
     GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
     GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
     GITHUB_CALLBACK_URL: process.env.GITHUB_CALLBACK_URL,
