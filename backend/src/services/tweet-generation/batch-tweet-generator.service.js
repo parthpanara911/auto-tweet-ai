@@ -51,8 +51,6 @@ class BatchTweetGeneratorService {
 
             const tweet = await this._saveTweet(userId, commitBatch, aiResult, commitContext);
 
-            await this._markCommitsAsTweeted(commitBatch, tweet._id);
-
             console.log('Daily tweet generated successfully', {
                 userId,
                 tweetId: tweet._id,
@@ -138,8 +136,6 @@ class BatchTweetGeneratorService {
             }
 
             const tweet = await this._saveTweet(userId, commits, aiResult, commitContext);
-
-            await this._markCommitsAsTweeted(commits, tweet._id);
 
             console.log('On-demand tweet generated successfully', {
                 userId,
@@ -290,24 +286,6 @@ class BatchTweetGeneratorService {
         await tweet.save();
         return tweet;
     }
-
-    async _markCommitsAsTweeted(commits, tweetId) {
-        const commitIds = commits.map((c) => c._id);
-
-        await Commit.updateMany(
-            { _id: { $in: commitIds } },
-            {
-                tweeted: true,
-                tweetId: tweetId,
-            }
-        );
-
-        console.log('Marked commits as tweeted', {
-            commitCount: commits.length,
-            tweetId,
-        });
-    }
 }
-
 
 export default new BatchTweetGeneratorService();
