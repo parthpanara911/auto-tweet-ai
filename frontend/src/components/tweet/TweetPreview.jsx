@@ -1,0 +1,208 @@
+/**
+ * TweetPreview — draft tweet cards with expandable commit context and draft lifecycle actions (edit / approve / reject)
+ * Draft lifecycle handling: only drafts are editable; approve moves server status to approved (removed from this list on refetch)
+ */
+import React, { useEffect, useState } from 'react';
+import { TWEET_MAX_LENGTH } from '../../hooks/useTweets.js';
+
+function formatWhen(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
+  } catch {
+    return '';
+  }
+}
+
+function DraftTweetCard({
+  tweet,
+  busy,
+  onSaveContent,
+  onApprove,
+  onReject,
+  maxLength,
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(tweet.content);
+
+  useEffect(() => {
+    setText(tweet.content);
+  }, [tweet.id, tweet.content]);
+
+  const commitCount = tweet.metadata?.commitCount ?? tweet.commits?.length ?? 0;
+  const repoLabel = tweet.repositoryFullName || 'Repository';
+
+  const handleSave = async () => {
+    try {
+      await onSaveContent(tweet.id, text);
+      setEditing(false);
+    } catch {
+      // Parent hook sets actionError; keep the textarea open so the user can fix and retry
+    }
+  };
+
+  return (
+    <li className="rounded-lg border border-gray-800 bg-gray-950/50 p-4 text-left">
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+        <span className="rounded bg-gray-800 px-2 py-0.5 font-medium uppercase tracking-wide text-gray-300">
+          Draft
+        </span>
+        <span className="text-gray-600">·</span>
+        <span>{formatWhen(tweet.createdAt || tweet.generatedAt)}</span>
+      </div>
+
+      <p className="text-xs text-gray-400 mb-1">{repoLabel}</p>
+      <p className="text-xs text-gray-500 mb-3">Commits: {commitCount}</p>
+
+      {editing ? (
+        <div className="space-y-2">
+          <textarea
+            value={text}
+            maxLength={maxLength}
+            onChange={(e) => setText(e.target.value)}
+            rows={5}
+            className="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600"
+          />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs text-gray-500">
+              {text.length} / {maxLength}
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setText(tweet.content);
+                  setEditing(false);
+                }}
+                className="rounded-md border border-gray-700 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-800 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busy || !text.trim()}
+                onClick={() => handleSave()}
+                className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-gray-700"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-gray-100 whitespace-pre-wrap break-words mb-4">{tweet.content}</p>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="mb-3 text-xs font-medium text-sky-400 hover:text-sky-300"
+      >
+        {expanded ? 'Hide commits' : 'Show commits'}
+      </button>
+
+      {expanded ? (
+        <ul className="mb-4 space-y-1.5 rounded-md border border-gray-800 bg-gray-900/50 p-3">
+          {tweet.commits?.length ? (
+            tweet.commits.map((c) => (
+              <li key={c.id} className="text-xs text-gray-400">
+                <span className="font-mono text-gray-500">{c.shortSha || '—'}</span>
+                <span className="mx-2 text-gray-700">·</span>
+                <span className="text-gray-300">{c.message || '(no message)'}</span>
+              </li>
+            ))
+          ) : (
+            <li className="text-xs text-gray-500">No commit details on this draft.</li>
+          )}
+        </ul>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2 border-t border-gray-800 pt-3">
+        <button
+          type="button"
+          disabled={busy || editing || tweet.status !== 'draft'}
+          onClick={() => setEditing(true)}
+          className="rounded-md border border-gray-600 px-3 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Edit
+        </button>
+        <button
+          type="button"
+          disabled={busy || editing || tweet.status !== 'draft'}
+          onClick={() => onApprove(tweet.id)}
+          className="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Approve
+        </button>
+        <button
+          type="button"
+          disabled={busy || editing || tweet.status !== 'draft'}
+          onClick={() => onReject(tweet.id)}
+          className="rounded-md border border-red-900/60 bg-red-950/30 px-3 py-1.5 text-xs font-medium text-red-200 hover:bg-red-950/50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Reject
+        </button>
+      </div>
+    </li>
+  );
+}
+
+export function TweetPreview({
+  drafts,
+  loading,
+  busyTweetId,
+  onSaveContent,
+  onApprove,
+  onReject,
+  actionError,
+  onDismissActionError,
+}) {
+  if (loading && !drafts.length) {
+    return (
+      <div className="text-sm text-gray-500 py-6 text-center border border-dashed border-gray-800 rounded-lg">
+        Loading drafts…
+      </div>
+    );
+  }
+
+  if (!drafts.length) {
+    return (
+      <div className="text-sm text-gray-500 py-6 text-center border border-dashed border-gray-800 rounded-lg">
+        No draft tweets yet. Generate one to see it here.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {actionError ? (
+        <div className="flex items-start justify-between gap-2 rounded-lg border border-red-900/50 bg-red-950/20 px-3 py-2 text-xs text-red-200">
+          <span>{actionError.message || 'Action failed'}</span>
+          {onDismissActionError ? (
+            <button type="button" onClick={onDismissActionError} className="shrink-0 text-red-300 underline">
+              Dismiss
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      <ul className="space-y-3">
+        {drafts.map((tweet) => (
+          <DraftTweetCard
+            key={tweet.id}
+            tweet={tweet}
+            busy={busyTweetId === tweet.id}
+            onSaveContent={onSaveContent}
+            onApprove={onApprove}
+            onReject={onReject}
+            maxLength={TWEET_MAX_LENGTH}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { TweetGenerator } from '../components/tweet/TweetGenerator.jsx';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -29,6 +30,8 @@ const Dashboard = () => {
           </p>
         </div>
       </section>
+
+      <TweetGenerator />
 
       <section className="bg-gray-900 border border-gray-800 rounded-xl p-4">
         <h2 className="text-sm font-semibold text-white mb-2">Activity overview</h2>
