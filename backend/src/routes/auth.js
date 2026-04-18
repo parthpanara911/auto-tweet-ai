@@ -69,6 +69,7 @@ router.post('/refresh', (req, res, next) => {
 
 router.post(
     '/logout',
+    // Always clear the cookie first, even if token is missing/expired
     (req, res, next) => {
         res.clearCookie('access_token', {
             httpOnly: true,
