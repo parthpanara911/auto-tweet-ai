@@ -1,8 +1,8 @@
 /**
- * TweetPreview — draft tweet cards with expandable commit context and draft lifecycle actions (edit / approve / reject)
- * Draft lifecycle handling: only drafts are editable; approve moves server status to approved (removed from this list on refetch)
+ * TweetPreview — draft tweet UI: full list or dashboard-only latest draft 
  */
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { TWEET_MAX_LENGTH } from '../../hooks/useTweets.js';
 
 function formatWhen(iso) {
@@ -161,19 +161,40 @@ export function TweetPreview({
   onReject,
   actionError,
   onDismissActionError,
+  // When true, only the newest draft is rendered 
+  latestOnly = false,
 }) {
+  // Dashboard: never map older drafts 
+  const visibleDrafts = latestOnly ? drafts.slice(0, 1) : drafts;
+
+  const dashboardFooter = latestOnly ? (
+    <div className="pt-2 text-right">
+      <Link to="/tweets" className="text-xs font-medium text-sky-400 hover:text-sky-300">
+        View all tweets →
+      </Link>
+    </div>
+  ) : null;
+
   if (loading && !drafts.length) {
     return (
-      <div className="text-sm text-gray-500 py-6 text-center border border-dashed border-gray-800 rounded-lg">
-        Loading drafts…
+      <div className="space-y-2">
+        <div className="text-sm text-gray-500 py-6 text-center border border-dashed border-gray-800 rounded-lg">
+          Loading drafts…
+        </div>
+        {dashboardFooter}
       </div>
     );
   }
 
-  if (!drafts.length) {
+  if (!visibleDrafts.length) {
     return (
-      <div className="text-sm text-gray-500 py-6 text-center border border-dashed border-gray-800 rounded-lg">
-        No draft tweets yet. Generate one to see it here.
+      <div className="space-y-2">
+        <div className="text-sm text-gray-500 py-6 text-center border border-dashed border-gray-800 rounded-lg">
+          {latestOnly
+            ? 'No drafts yet. Generate one from commits.'
+            : 'No draft tweets yet. Generate one to see it here.'}
+        </div>
+        {dashboardFooter}
       </div>
     );
   }
@@ -191,7 +212,7 @@ export function TweetPreview({
         </div>
       ) : null}
       <ul className="space-y-3">
-        {drafts.map((tweet) => (
+        {visibleDrafts.map((tweet) => (
           <DraftTweetCard
             key={tweet.id}
             tweet={tweet}
@@ -203,6 +224,7 @@ export function TweetPreview({
           />
         ))}
       </ul>
+      {dashboardFooter}
     </div>
   );
 }

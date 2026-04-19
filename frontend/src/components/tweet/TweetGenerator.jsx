@@ -199,6 +199,7 @@ export function TweetGenerator() {
             onReject={(id) => rejectDraft(id)}
             actionError={actionError}
             onDismissActionError={clearActionError}
+            latestOnly
           />
         </div>
       </div>
