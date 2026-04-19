@@ -7,14 +7,12 @@ import { Link } from 'react-router-dom';
 import { apiClient } from '../../services/apiClient.js';
 import { useRepositories } from '../../hooks/useRepositories.js';
 import { useTweets } from '../../hooks/useTweets.js';
-import { ModeToggle } from './ModeToggle.jsx';
 import { CommitSelector } from './CommitSelector.jsx';
 import { TweetPreview } from './TweetPreview.jsx';
 
 export function TweetGenerator() {
   const { data: repos, loading: reposLoading } = useRepositories({ page: 1, limit: 100 });
 
-  const [mode, setMode] = useState('auto');
   const [manualRepositoryId, setManualRepositoryId] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [generating, setGenerating] = useState(false);
@@ -43,14 +41,7 @@ export function TweetGenerator() {
   } = useTweets({ listScope: 'drafts', limit: 20 });
 
   useEffect(() => {
-    // Reset state when mode switches 
-    setManualRepositoryId('');
-    setSelectedIds([]);
     setGenerateError(null);
-  }, [mode]);
-
-  const handleModeChange = useCallback((next) => {
-    setMode(next);
   }, []);
 
   const handleRepositoryChange = useCallback((repoId) => {
@@ -73,16 +64,14 @@ export function TweetGenerator() {
     });
   }, []);
 
-  const canGenerateAuto = !generating;
   const canGenerateManual =
     !generating &&
     Boolean(manualRepositoryId) &&
     selectedIds.length >= 1 &&
     selectedIds.length <= 5;
 
-  const canGenerate = mode === 'manual' ? canGenerateManual : canGenerateAuto;
-
-  const blockManualWithoutRepos = mode === 'manual' && !reposLoading && trackedRepos.length === 0;
+  const canGenerate = canGenerateManual;
+  const blockManualWithoutRepos = !reposLoading && trackedRepos.length === 0;
 
   const handleGenerate = async () => {
     if (!canGenerate) return;
@@ -93,11 +82,7 @@ export function TweetGenerator() {
 
     try {
       // Async generation flow: server queues Bull job; only wait for HTTP 202, not the finished draft
-      if (mode === 'manual') {
-        await apiClient.post('/api/tweets/generate', { commitIds: selectedIds });
-      } else {
-        await apiClient.post('/api/tweets/generate', {});
-      }
+      await apiClient.post('/api/tweets/generate', { commitIds: selectedIds });
 
       refetchDrafts();
       startPollingDrafts({ intervalMs: 2000, durationMs: 60000 });
@@ -125,7 +110,7 @@ export function TweetGenerator() {
         <div>
           <h2 className="text-lg font-semibold text-white">Tweet generation</h2>
           <p className="mt-1 text-sm text-gray-400">
-            Generate a tweet from your latest commits, or choose a tracked repository and select up to 5 commits manually.
+            Choose a tracked repository and select up to 5 commits manually.
             To track a repository, visit the{" "}
             <Link to="/repositories" className="text-xs font-medium text-sky-400 hover:text-sky-300">
               Repositories
@@ -137,7 +122,9 @@ export function TweetGenerator() {
 
       <div className="grid gap-8 lg:grid-cols-2">
         <div className="space-y-6">
-          <ModeToggle mode={mode} onModeChange={handleModeChange} disabled={generating} />
+          <p className="text-sm text-gray-500">
+            Auto draft is enabled — tweets are generated automatically when you push to tracked repositories. When selecting commits manually, click “Generate Tweet” to create tweets.
+          </p>
 
           {blockManualWithoutRepos ? (
             <div className="rounded-lg border border-dashed border-amber-900/40 bg-amber-950/20 px-4 py-6 text-sm text-amber-100/90">
@@ -148,7 +135,7 @@ export function TweetGenerator() {
             </div>
           ) : null}
 
-          {mode === 'manual' && !blockManualWithoutRepos ? (
+          {!blockManualWithoutRepos ? (
             <CommitSelector
               trackedRepos={trackedRepos}
               selectedRepositoryId={manualRepositoryId}
@@ -158,12 +145,6 @@ export function TweetGenerator() {
               disabled={generating || reposLoading}
               repositoryListLoading={reposLoading}
             />
-          ) : null}
-
-          {mode === 'auto' ? (
-            <p className="text-sm text-gray-500">
-              The server will use your latest eligible commits (up to three) automatically.
-            </p>
           ) : null}
 
           {generateError ? (
@@ -183,11 +164,9 @@ export function TweetGenerator() {
             >
               {generating ? 'Generating tweet…' : 'Generate Tweet'}
             </button>
-            {mode === 'manual' ? (
-              <span className="text-xs text-gray-500">
-                {selectedIds.length} selected · min 1, max 5
-              </span>
-            ) : null}
+            <span className="text-xs text-gray-500">
+              {selectedIds.length} selected · min 1, max 5
+            </span>
           </div>
         </div>
 
