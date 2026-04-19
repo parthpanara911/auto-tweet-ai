@@ -1,11 +1,24 @@
 import React, { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 
-const routeTitles = {
-  '/dashboard': 'Dashboard',
-  '/commits': 'Commits',
-  '/tweets': 'Tweets',
+const pageConfig = {
+  "/dashboard": {
+    title: "Dashboard",
+    description: "Overview of your GitHub activity and AI tweet generation.",
+  },
+  "/repositories": {
+    title: "Repositories",
+    description: "Select and manage repositories to track commits.",
+  },
+  "/commits": {
+    title: "Commits",
+    description: "Browse and select commits for tweet generation.",
+  },
+  "/tweets": {
+    title: "Tweets",
+    description: "View and manage all generated tweets.",
+  },
 };
 
 const Navbar = () => {
@@ -13,7 +26,10 @@ const Navbar = () => {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const title = routeTitles[location.pathname] || 'Dashboard';
+  const currentPage = pageConfig[location.pathname] || {
+    title: "Dashboard",
+    description: "",
+  };
 
   const handleLogout = async () => {
     setMenuOpen(false);
@@ -33,9 +49,27 @@ const Navbar = () => {
   return (
     <header className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
       <div>
-        <h1 className="text-lg font-semibold text-white">{title}</h1>
-        <p className="text-xs text-gray-400">
-          AI-generated tweets from your GitHub activity.
+        {/* Breadcrumb */}
+        {currentPage.title !== "Dashboard" && (
+          <p className="text-sm mb-1">
+            <Link
+              to="/dashboard"
+              className="text-sky-400 hover:text-sky-300 font-medium"
+            >
+              Dashboard
+            </Link>
+            <span className="text-gray-500"> / {currentPage.title}</span>
+          </p>
+        )}
+
+        {/* Title */}
+        <h1 className="text-xl font-semibold text-white">
+          {currentPage.title}
+        </h1>
+
+        {/* Description */}
+        <p className="text-sm text-gray-400">
+          {currentPage.description}
         </p>
       </div>
 
@@ -80,4 +114,3 @@ const Navbar = () => {
 };
 
 export default Navbar;
-

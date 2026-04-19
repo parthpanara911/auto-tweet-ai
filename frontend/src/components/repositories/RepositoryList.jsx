@@ -138,7 +138,7 @@ export default function RepositoryList() {
       try {
         // unregister webhook + untrack repo 
         await disableTracking({ repositoryId, webhookId });
-        // refetch to reflect backend state as the source of truth
+        // refetch to reflect backend state
         await refetch();
       } catch (e) {
         // rollback optimistic update if request fails
@@ -175,8 +175,7 @@ export default function RepositoryList() {
         <div>
           <h1 className="text-lg font-semibold text-white">Repositories</h1>
           <p className="text-sm text-gray-400">
-            Track repositories to enable webhook-powered sync. Webhook configuration is managed
-            securely by the backend.
+            Select the repositories you want to track. We’ll automatically sync commits to help generate your tweets.
           </p>
           <p className="text-xs text-gray-500 mt-1">
             Public repositories
@@ -303,4 +302,3 @@ export default function RepositoryList() {
     </div>
   );
 }
-
