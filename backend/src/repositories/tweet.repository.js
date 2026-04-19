@@ -1,6 +1,14 @@
 import mongoose from 'mongoose';
 import Tweet from "../db/models/Tweet.js";
+import Commit from "../db/models/Commit.js";
 import AppError from "../errors/AppError.js";
+
+/** Deep populate for tweet listings and detail responses (repository name + commit lines for UI). */
+export const TWEET_COMMIT_POPULATE = {
+    path: 'commitIds',
+    select: 'message githubSha url repositoryId',
+    populate: { path: 'repositoryId', select: 'fullName' },
+};
 
 class TweetRepository {
     async create(tweetData) {
@@ -16,7 +24,7 @@ class TweetRepository {
 
     async findById(tweetId) {
         try {
-            const tweet = await Tweet.findById(tweetId).populate('commitIds');
+            const tweet = await Tweet.findById(tweetId).populate(TWEET_COMMIT_POPULATE);
             return tweet;
         } catch (error) {
             console.error(`[TweetRepo] FindById failed for ${tweetId}:`, error.message);
@@ -29,7 +37,7 @@ class TweetRepository {
             const tweet = await Tweet.findOne({
                 _id: tweetId,
                 userId,
-            }).populate('commitIds');
+            }).populate(TWEET_COMMIT_POPULATE);
 
             return tweet;
         } catch (error) {
@@ -57,7 +65,7 @@ class TweetRepository {
             }
 
             const tweets = await Tweet.find(query)
-                .populate('commitIds')
+                .populate(TWEET_COMMIT_POPULATE)
                 .sort({ [sortBy]: sortOrder })
                 .skip(skip)
                 .limit(limit)
@@ -86,7 +94,7 @@ class TweetRepository {
                 userId,
                 status: 'draft',
             })
-                .populate('commitIds')
+                .populate(TWEET_COMMIT_POPULATE)
                 .sort({ createdAt: -1 })
                 .lean();
 
@@ -124,13 +132,23 @@ class TweetRepository {
                 ...(newStatus === 'posted' && { postedAt: new Date() }),
             };
 
-            const tweet = await Tweet.findOneAndUpdate(
+            const updated = await Tweet.findByIdAndUpdate(
                 { _id: tweetId, status: 'draft' },
                 updateData,
                 { new: true }
-            ).populate('commitIds').lean();
+            ).lean();
 
-            return tweet;
+            if (!updated) {
+                throw new AppError(
+                    'Tweet not found',
+                    404,
+                    'TWEET_NOT_FOUND'
+                );
+            }
+
+            return Tweet.findById(tweetId)
+                .populate(TWEET_COMMIT_POPULATE)
+                .lean();
         } catch (error) {
             console.error('[TweetRepo] updateStatus failed', {
                 tweetId,
@@ -166,7 +184,7 @@ class TweetRepository {
                 );
             }
 
-            const tweet = await Tweet.findOneAndUpdate(
+            const updated = await Tweet.findOneAndUpdate(
                 { _id: tweetId, status: 'draft' },
                 {
                     content: newContent,
@@ -174,9 +192,17 @@ class TweetRepository {
                     editedAt: new Date(),
                 },
                 { new: true }
-            ).populate('commitIds').lean();
+            ).lean();
 
-            return tweet;
+            if (!updated) {
+                throw new AppError(
+                    'Tweet not found or not in draft status',
+                    404,
+                    'TWEET_CONTENT_UPDATE_NOT_FOUND'
+                );
+            }
+
+            return Tweet.findById(tweetId).populate(TWEET_COMMIT_POPULATE).lean();
         } catch (error) {
             console.error('[TweetRepo] updateContent failed', {
                 tweetId,
@@ -215,7 +241,15 @@ class TweetRepository {
                     postedAt: new Date(),
                 },
                 { new: true }
-            ).populate('commitIds').lean();
+            ).populate(TWEET_COMMIT_POPULATE).lean();
+
+            if (tweet?.commitIds?.length) {
+                const commitIds = tweet.commitIds.map((c) => c._id);
+                await Commit.updateMany(
+                    { _id: { $in: commitIds } },
+                    { tweeted: true, tweetId: tweet._id }
+                );
+            }
 
             return tweet;
         } catch (error) {

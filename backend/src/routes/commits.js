@@ -1,4 +1,5 @@
 import express from "express";
+import mongoose from "mongoose";
 import authMiddleware from "../middleware/auth.js";
 import Commit from "../db/models/Commit.js";
 
@@ -8,7 +9,7 @@ const router = express.Router();
 router.get('/', authMiddleware, async (req, res, next) => {
     try {
         const userId = req.user._id;
-        const { page = 1, limit = 10, tweeted = false } = req.query;
+        const { page = 1, limit = 10, tweeted, isProcessed, repositoryId } = req.query;
 
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
@@ -16,10 +17,18 @@ router.get('/', authMiddleware, async (req, res, next) => {
 
         const query = { userId };
 
-        if (tweeted === 'false') query.tweeted = false;
+        // "Not posted yet" — match false, null, or missing (strict `tweeted: false` omits legacy docs without the field).
+        if (tweeted === 'false') query.tweeted = { $ne: true };
+        if (tweeted === 'true') query.tweeted = true;
+        if (isProcessed === 'true') query.isProcessed = true;
+        if (repositoryId && mongoose.Types.ObjectId.isValid(String(repositoryId))) {
+            query.repositoryId = new mongoose.Types.ObjectId(String(repositoryId));
+        }
 
         const commits = await Commit.find(query)
-            .select('message additions deletions filesChanged timestamp url')
+            .select(
+                '_id repositoryId githubSha message additions deletions filesChanged timestamp url isProcessed tweeted'
+            )
             .sort({ timestamp: -1 })
             .skip(skip)
             .limit(limitNum)

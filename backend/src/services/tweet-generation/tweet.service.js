@@ -172,9 +172,10 @@ class TweetService {
                 );
             }
 
-            if (tweet.commitIds?.length) {
+            const commitMongoIds = this._commitIdsForQuery(tweet.commitIds);
+            if (commitMongoIds.length) {
                 await Commit.updateMany(
-                    { _id: { $in: tweet.commitIds } },
+                    { _id: { $in: commitMongoIds } },
                     {
                         tweeted: false,
                         tweetId: null,
@@ -263,9 +264,10 @@ class TweetService {
                 );
             }
 
-            if (tweet.commitIds?.length) {
+            const commitMongoIds = this._commitIdsForQuery(tweet.commitIds);
+            if (commitMongoIds.length) {
                 await Commit.updateMany(
-                    { _id: { $in: tweet.commitIds } },
+                    { _id: { $in: commitMongoIds } },
                     {
                         tweeted: false,
                         tweetId: null,
@@ -324,23 +326,59 @@ class TweetService {
         }
     }
 
+    /** Normalize commit id array when commitIds are populated Mongoose subdocuments. */
+    _commitIdsForQuery(commitIds) {
+        if (!Array.isArray(commitIds)) return [];
+        return commitIds.map((c) => (c && typeof c === 'object' && c._id != null ? c._id : c));
+    }
+
     _formatTweet(tweet) {
+        const t = tweet?.toObject ? tweet.toObject() : tweet;
+        const rawId = t._id ?? t.id;
+        const id = rawId?.toString?.() ?? String(rawId);
+
+        const commitsPayload = [];
+        let repositoryFullName = null;
+
+        for (const c of t.commitIds || []) {
+            if (c == null) continue;
+            const cid =
+                typeof c === 'object' && c._id != null
+                    ? String(c._id)
+                    : String(c);
+
+            const message = typeof c === 'object' && 'message' in c ? (c.message ?? '') : '';
+            const sha = typeof c === 'object' && c.githubSha ? String(c.githubSha) : '';
+            commitsPayload.push({
+                id: cid,
+                message,
+                shortSha: sha.length >= 7 ? sha.slice(0, 7) : sha || null,
+            });
+
+            const repo = typeof c === 'object' ? c.repositoryId : null;
+            if (!repositoryFullName && repo && typeof repo === 'object' && repo.fullName) {
+                repositoryFullName = repo.fullName;
+            }
+        }
+
         return {
-            id: tweet._id.toString(),
-            content: tweet.content,
-            status: tweet.status,
+            id,
+            content: t.content,
+            status: t.status,
             metadata: {
-                commitCount: tweet.metadata.commitCount,
-                mainLanguages: tweet.metadata.mainLanguages,
+                commitCount: t.metadata?.commitCount,
+                mainLanguages: t.metadata?.mainLanguages,
             },
-            ...(tweet.isEdited && {
-                isEdited: tweet.isEdited,
-                editedAt: tweet.editedAt,
+            ...(t.isEdited && {
+                isEdited: t.isEdited,
+                editedAt: t.editedAt,
             }),
-            createdAt: tweet.createdAt,
-            updatedAt: tweet.updatedAt,
-            generatedAt: tweet.generatedAt,
-            postedAt: tweet.postedAt,
+            createdAt: t.createdAt,
+            updatedAt: t.updatedAt,
+            generatedAt: t.generatedAt,
+            postedAt: t.postedAt,
+            ...(repositoryFullName && { repositoryFullName }),
+            commits: commitsPayload,
         };
     }
 }
