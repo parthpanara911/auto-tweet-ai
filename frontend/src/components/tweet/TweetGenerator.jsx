@@ -3,6 +3,7 @@
  * Manual mode: repository dropdown → commits from that repo only → POST /api/tweets/generate with { commitIds }
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { apiClient } from '../../services/apiClient.js';
 import { useRepositories } from '../../hooks/useRepositories.js';
 import { useTweets } from '../../hooks/useTweets.js';
@@ -27,7 +28,7 @@ export function TweetGenerator() {
   );
 
   const {
-    drafts,
+    tweets,
     loading: draftsLoading,
     error: draftsError,
     refetchDrafts,
@@ -39,7 +40,7 @@ export function TweetGenerator() {
     busyTweetId,
     actionError,
     clearActionError,
-  } = useTweets({ limit: 20 });
+  } = useTweets({ listScope: 'drafts', limit: 20 });
 
   useEffect(() => {
     // Reset state when mode switches 
@@ -124,7 +125,12 @@ export function TweetGenerator() {
         <div>
           <h2 className="text-lg font-semibold text-white">Tweet generation</h2>
           <p className="mt-1 text-sm text-gray-400">
-            Generate a tweet from your recent commits, or select a tracked repository and choose up to 5 commits manually.
+            Generate a tweet from your latest commits, or choose a tracked repository and select up to 5 commits manually.
+            To track a repository, visit the{" "}
+            <Link to="/repositories" className="text-xs font-medium text-sky-400 hover:text-sky-300">
+              Repositories
+            </Link>{" "}
+            page.
           </p>
         </div>
       </div>
@@ -137,7 +143,7 @@ export function TweetGenerator() {
             <div className="rounded-lg border border-dashed border-amber-900/40 bg-amber-950/20 px-4 py-6 text-sm text-amber-100/90">
               <p className="font-medium text-amber-200">No tracked repositories</p>
               <p className="mt-2 text-xs text-amber-100/70">
-                Enable tracking (webhook) on at least one public repository to use manual selection.
+                Enable tracking on at least one public repository to use manual selection.
               </p>
             </div>
           ) : null}
@@ -191,7 +197,7 @@ export function TweetGenerator() {
             <p className="mb-3 text-xs text-red-400">{draftsError.message}</p>
           ) : null}
           <TweetPreview
-            drafts={drafts}
+            drafts={tweets}
             loading={draftsLoading}
             busyTweetId={busyTweetId}
             onSaveContent={handleSaveDraft}

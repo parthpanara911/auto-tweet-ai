@@ -1,17 +1,251 @@
-import React from 'react';
+/**
+ * Tweets — full tweet history (all statuses) from GET /api/tweets with client-side newest-first ordering.
+ */
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useTweets, TWEET_MAX_LENGTH } from '../hooks/useTweets.js';
 
-const Tweets = () => {
+function formatWhen(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  } catch {
+    return '—';
+  }
+}
+
+function statusStyles(status) {
+  switch (status) {
+    case 'draft':
+      return 'bg-amber-950/60 text-amber-200 border-amber-800/50';
+    case 'approved':
+      return 'bg-emerald-950/50 text-emerald-200 border-emerald-800/50';
+    case 'posted':
+      return 'bg-sky-950/50 text-sky-200 border-sky-800/50';
+    case 'rejected':
+      return 'bg-red-950/40 text-red-200 border-red-900/40';
+    default:
+      return 'bg-gray-800 text-gray-300 border-gray-700';
+  }
+}
+
+function TweetHistoryCard({
+  tweet,
+  busy,
+  onSaveContent,
+  onApprove,
+  onReject,
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(tweet.content);
+
+  useEffect(() => {
+    setText(tweet.content);
+  }, [tweet.id, tweet.content]);
+
+  const isDraft = tweet.status === 'draft';
+  const commitCount = tweet.metadata?.commitCount ?? tweet.commits?.length ?? 0;
+  const repoLabel = tweet.repositoryFullName || '—';
+  const displayTime = tweet.postedAt || tweet.generatedAt || tweet.createdAt;
+
+  const handleSave = async () => {
+    try {
+      await onSaveContent(tweet.id, text);
+      setEditing(false);
+    } catch {
+      /* actionError from hook */
+    }
+  };
+
   return (
-    <div className="space-y-4">
-      <section className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-        <h2 className="text-sm font-semibold text-white mb-2">Tweets</h2>
-        <p className="text-sm text-gray-300">
+    <article className="flex flex-col rounded-xl border border-gray-800 bg-gray-900/80 p-4 sm:p-5 shadow-sm">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <span
+          className={`inline-flex rounded-md border px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${statusStyles(tweet.status)}`}
+        >
+          {tweet.status}
+        </span>
+        <time className="text-xs text-gray-500">{formatWhen(displayTime)}</time>
+      </div>
 
+      <p className="text-xs text-gray-400 mb-1">
+        <span className="text-gray-500">Repository</span> · {repoLabel}
+      </p>
+      <p className="text-xs text-gray-500 mb-3">Commits · {commitCount}</p>
+
+      {editing && isDraft ? (
+        <div className="mb-4 space-y-2">
+          <textarea
+            value={text}
+            maxLength={TWEET_MAX_LENGTH}
+            onChange={(e) => setText(e.target.value)}
+            rows={5}
+            className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600"
+          />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs text-gray-500">
+              {text.length} / {TWEET_MAX_LENGTH}
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setText(tweet.content);
+                  setEditing(false);
+                }}
+                className="rounded-md border border-gray-700 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busy || !text.trim()}
+                onClick={handleSave}
+                className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-500 disabled:bg-gray-700"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className="mb-4 flex-1 text-sm leading-relaxed text-gray-100 whitespace-pre-wrap break-words">
+          {tweet.content}
         </p>
-      </section>
+      )}
+
+      {isDraft ? (
+        <div className="mt-auto flex flex-wrap gap-2 border-t border-gray-800 pt-3">
+          <button
+            type="button"
+            disabled={busy || editing}
+            onClick={() => setEditing(true)}
+            className="rounded-md border border-gray-600 px-3 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-800 disabled:opacity-40"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            disabled={busy || editing}
+            onClick={() => onApprove(tweet.id)}
+            className="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-40"
+          >
+            Approve
+          </button>
+          <button
+            type="button"
+            disabled={busy || editing}
+            onClick={() => onReject(tweet.id)}
+            className="rounded-md border border-red-900/60 bg-red-950/30 px-3 py-1.5 text-xs font-medium text-red-200 hover:bg-red-950/50 disabled:opacity-40"
+          >
+            Reject
+          </button>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+export default function Tweets() {
+  const {
+    tweets,
+    loading,
+    error,
+    refetchTweets,
+    saveDraftContent,
+    approveDraft,
+    rejectDraft,
+    busyTweetId,
+    actionError,
+    clearActionError,
+  } = useTweets({ listScope: 'all', limit: 100 });
+
+  return (
+    <div className="space-y-6">
+      <header className="flex flex-col gap-3 border-b border-gray-800 pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-lg font-semibold text-white sm:text-xl">Tweet history</h1>
+          <p className="mt-1 text-sm text-gray-400">All generated tweets, newest first.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => refetchTweets()}
+            disabled={loading}
+            className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-800 disabled:opacity-50"
+          >
+            Refresh
+          </button>
+        </div>
+      </header>
+
+      {actionError ? (
+        <div className="flex items-start justify-between gap-2 rounded-lg border border-red-900/50 bg-red-950/20 px-4 py-3 text-sm text-red-200">
+          <span>{actionError.message || 'Something went wrong'}</span>
+          <button type="button" onClick={clearActionError} className="shrink-0 text-xs text-red-300 underline">
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="rounded-xl border border-red-900/40 bg-red-950/20 p-6 text-center">
+          <p className="text-sm font-medium text-red-200">Could not load tweets</p>
+          <p className="mt-2 text-xs text-red-300/80">{error.message}</p>
+          <button
+            type="button"
+            onClick={() => refetchTweets()}
+            className="mt-4 rounded-lg bg-red-900/40 px-4 py-2 text-xs font-semibold text-red-100 hover:bg-red-900/60"
+          >
+            Try again
+          </button>
+        </div>
+      ) : null}
+
+      {!error && loading && !tweets.length ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="h-48 animate-pulse rounded-xl border border-gray-800 bg-gray-900/60"
+              aria-hidden
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {!error && !loading && !tweets.length ? (
+        <div className="rounded-xl border border-dashed border-gray-700 bg-gray-900/40 px-6 py-16 text-center">
+          <p className="text-sm font-medium text-gray-300">No tweets yet</p>
+          <p className="mt-2 text-sm text-gray-500">
+            Generate a draft from the{' '}
+            <Link to="/dashboard" className="text-sky-400 hover:text-sky-300">
+              dashboard
+            </Link>
+            .
+          </p>
+        </div>
+      ) : null}
+
+      {!error && tweets.length > 0 ? (
+        <ul className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {tweets.map((tweet) => (
+            <li key={tweet.id}>
+              <TweetHistoryCard
+                tweet={tweet}
+                busy={busyTweetId === tweet.id}
+                onSaveContent={saveDraftContent}
+                onApprove={approveDraft}
+                onReject={rejectDraft}
+              />
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
-};
-
-export default Tweets;
-
+}

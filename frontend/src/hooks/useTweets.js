@@ -1,6 +1,5 @@
 /**
- * useTweets — draft listing (GET /api/tweets?status=draft), post-queue polling, and draft lifecycle actions
- * (PATCH edit, approve, reject). Aligns UI with backend: commits are not final until tweet.status === "posted"
+ * useTweets — calls GET /api/tweets (either drafts only or full history), polls for dashboard updates, and handles draft-related actions.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '../services/apiClient.js';
@@ -30,18 +29,29 @@ function normalizeTweet(raw) {
     createdAt: raw.createdAt ?? null,
     updatedAt: raw.updatedAt ?? null,
     generatedAt: raw.generatedAt ?? null,
+    postedAt: raw.postedAt ?? null,
     raw,
   };
 }
 
+function sortTweetsNewestFirst(list) {
+  return [...list].sort((a, b) => {
+    const ta = new Date(a.generatedAt || a.createdAt || 0).getTime();
+    const tb = new Date(b.generatedAt || b.createdAt || 0).getTime();
+    return tb - ta;
+  });
+}
+
 /**
  * @param {object} [options]
- * @param {number} [options.limit] 
+ * @param {number} [options.limit]
+ * @param {'drafts'|'all'} [options.listScope] — drafts: status=dashboard; all: no status filter (tweet history page)
  */
 export function useTweets(options = {}) {
   const limit = options.limit ?? 20;
+  const listScope = options.listScope ?? 'drafts';
 
-  const [drafts, setDrafts] = useState([]);
+  const [tweets, setTweets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busyTweetId, setBusyTweetId] = useState(null);
@@ -50,25 +60,28 @@ export function useTweets(options = {}) {
   const pollTimerRef = useRef(null);
   const pollDeadlineRef = useRef(null);
 
-  const fetchDrafts = useCallback(async () => {
+  const fetchTweets = useCallback(async () => {
     setError(null);
     try {
-      const query = buildQuery({ status: 'draft', page: 1, limit });
+      const queryParams = { page: 1, limit };
+      if (listScope === 'drafts') queryParams.status = 'draft';
+      const query = buildQuery(queryParams);
       const payload = await apiClient.get(`/api/tweets${query}`);
       const inner = payload?.data;
       const tweetsRaw = Array.isArray(inner?.tweets) ? inner.tweets : [];
-      const next = tweetsRaw.map(normalizeTweet).filter((t) => t?.id);
-      setDrafts(next);
+      const next = sortTweetsNewestFirst(tweetsRaw.map(normalizeTweet).filter((t) => t?.id));
+      setTweets(next);
     } catch (e) {
       setError(e);
     } finally {
       setLoading(false);
     }
-  }, [limit]);
+  }, [limit, listScope]);
 
   useEffect(() => {
-    fetchDrafts();
-  }, [fetchDrafts]);
+    setLoading(true);
+    fetchTweets();
+  }, [fetchTweets]);
 
   const stopPollingDrafts = useCallback(() => {
     if (pollTimerRef.current != null) {
@@ -79,8 +92,8 @@ export function useTweets(options = {}) {
   }, []);
 
   /**
-   * Poll GET /api/tweets?status=draft on an interval until the deadline; used after POST /generate returns 202
-   */
+  * Keep requesting GET /api/tweets?status=draft at intervals until the deadline, once POST /generate returns 202.
+  */
   const startPollingDrafts = useCallback(
     (pollOptions = {}) => {
       const intervalMs = pollOptions.intervalMs ?? 2000;
@@ -90,27 +103,26 @@ export function useTweets(options = {}) {
       pollDeadlineRef.current = Date.now() + durationMs;
 
       pollTimerRef.current = setInterval(() => {
-        // Polling: stop after durationMs so do not poll forever if the worker fails silently
         if (pollDeadlineRef.current != null && Date.now() > pollDeadlineRef.current) {
           stopPollingDrafts();
           return;
         }
-        fetchDrafts();
+        fetchTweets();
       }, intervalMs);
     },
-    [fetchDrafts, stopPollingDrafts],
+    [fetchTweets, stopPollingDrafts],
   );
 
   useEffect(() => () => stopPollingDrafts(), [stopPollingDrafts]);
 
-  /** Draft lifecycle: persist edited text (draft-only on server) */
+  /** Draft lifecycle: persist edited text */
   const saveDraftContent = useCallback(
     async (tweetId, content) => {
       setActionError(null);
       setBusyTweetId(String(tweetId));
       try {
         await apiClient.patch(`/api/tweets/${tweetId}`, { content });
-        await fetchDrafts();
+        await fetchTweets();
       } catch (e) {
         setActionError(e);
         throw e;
@@ -118,7 +130,7 @@ export function useTweets(options = {}) {
         setBusyTweetId(null);
       }
     },
-    [fetchDrafts],
+    [fetchTweets],
   );
 
   /** Draft lifecycle: promote to approved */
@@ -128,7 +140,7 @@ export function useTweets(options = {}) {
       setBusyTweetId(String(tweetId));
       try {
         await apiClient.post(`/api/tweets/${tweetId}/approve`, {});
-        await fetchDrafts();
+        await fetchTweets();
       } catch (e) {
         setActionError(e);
         throw e;
@@ -136,17 +148,17 @@ export function useTweets(options = {}) {
         setBusyTweetId(null);
       }
     },
-    [fetchDrafts],
+    [fetchTweets],
   );
 
-  /** Draft lifecycle: reject — backend resets linked commits' tweeted flags when applicable */
+  /** Draft lifecycle: reject — backend resets linked commits */
   const rejectDraft = useCallback(
     async (tweetId) => {
       setActionError(null);
       setBusyTweetId(String(tweetId));
       try {
         await apiClient.post(`/api/tweets/${tweetId}/reject`, {});
-        await fetchDrafts();
+        await fetchTweets();
       } catch (e) {
         setActionError(e);
         throw e;
@@ -154,14 +166,16 @@ export function useTweets(options = {}) {
         setBusyTweetId(null);
       }
     },
-    [fetchDrafts],
+    [fetchTweets],
   );
 
   return {
-    drafts,
+    tweets,
+    drafts: tweets,
     loading,
     error,
-    refetchDrafts: fetchDrafts,
+    refetchTweets: fetchTweets,
+    refetchDrafts: fetchTweets,
     startPollingDrafts,
     stopPollingDrafts,
     saveDraftContent,
