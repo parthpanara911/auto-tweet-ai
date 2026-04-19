@@ -6,7 +6,14 @@ class TweetProcessor {
     async processJob(job) {
         const startTime = Date.now();
         try {
-            const { userId, triggerType = 'manual', commitIds = null } = job.data;
+            const {
+                userId,
+                triggerType = 'manual',
+                commitIds = null,
+                repositoryId = null,
+                commitShas = [],
+                deliveryId = null,
+            } = job.data;
 
             console.log('[TweetProcessor] Job started', {
                 jobId: job.id,
@@ -37,6 +44,13 @@ class TweetProcessor {
                 result = await BatchTweetGeneratorService.generateDailyTweets(userId);
             } else if (triggerType === 'manual') {
                 result = await BatchTweetGeneratorService.generateOnDemandTweet(userId, commitIds);
+            } else if (triggerType === 'auto_push') {
+                result = await BatchTweetGeneratorService.generateAutoPushTweet(
+                    userId,
+                    repositoryId,
+                    commitShas,
+                    deliveryId
+                );
             } else {
                 throw new AppError(
                     `Invalid trigger type: ${triggerType}`,
