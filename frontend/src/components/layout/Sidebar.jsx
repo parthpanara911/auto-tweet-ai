@@ -33,16 +33,6 @@ const Sidebar = () => {
         </NavLink>
 
         <NavLink
-          to="/commits"
-          className={({ isActive }) =>
-            `${navLinkBase} ${isActive ? 'bg-gray-900 text-white' : 'hover:bg-gray-900/60'}`
-          }
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-          <span>Commits</span>
-        </NavLink>
-
-        <NavLink
           to="/tweets"
           className={({ isActive }) =>
             `${navLinkBase} ${isActive ? 'bg-gray-900 text-white' : 'hover:bg-gray-900/60'}`

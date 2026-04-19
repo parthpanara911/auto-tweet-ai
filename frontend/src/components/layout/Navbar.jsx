@@ -11,10 +11,6 @@ const pageConfig = {
     title: "Repositories",
     description: "Select and manage repositories to track commits.",
   },
-  "/commits": {
-    title: "Commits",
-    description: "Browse and select commits for tweet generation.",
-  },
   "/tweets": {
     title: "Tweets",
     description: "View and manage all generated tweets.",
