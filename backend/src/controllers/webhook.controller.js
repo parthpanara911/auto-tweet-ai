@@ -1,7 +1,7 @@
 import DedupService from "../services/dedup.service.js";
 import WebhookEventService from "../services/webhook-event.service.js";
 import WebhookEventLog from "../db/models/WebhookEventLog.js";
-import { commitProcessingQueue } from "../queue/bull.js";
+import { commitProcessingQueue, tweetGenerationQueue } from "../queue/bull.js";
 import { decrypt } from "../utils/encryption.js";
 import WebhookService from "../services/webhook.service.js";
 import Webhook from "../db/models/Webhook.js";
@@ -14,6 +14,7 @@ class WebhookController {
      */
     async handleGitHubWebhook(req, res, next) {
         const jobsToQueue = [];
+        const pushCommitShas = [];
 
         try {
             const webhook = req.webhook;
@@ -89,10 +90,30 @@ class WebhookController {
                 );
 
                 jobsToQueue.push(job.id);
+                pushCommitShas.push(commit.githubSha);
 
                 await DedupService.markAsSeen(commit.githubSha);
 
                 console.log(`[Webhook] Queued: ${job.id}`);
+            }
+
+            // Queue one auto-draft job per push event (grouped commits from this webhook delivery)
+            if (pushCommitShas.length > 0) {
+                await tweetGenerationQueue.add(
+                    'tweet-generation',
+                    {
+                        userId: webhook.userId.toString(),
+                        triggerType: 'auto_push',
+                        repositoryId: webhook.repositoryId.toString(),
+                        commitShas: pushCommitShas,
+                        deliveryId,
+                    },
+                    {
+                        jobId: `auto-push-${webhook.repositoryId}-${deliveryId}`,
+                        // Wait 60s to allow commit-processing jobs to store data before querying processed rows
+                        delay: 60 * 1000,
+                    }
+                );
             }
 
             // ======= Log event =======
@@ -120,7 +141,8 @@ class WebhookController {
                 message: 'Webhook received and processed',
                 deliveryId,
                 commitCount: commits.length,
-                jobsToQueue: jobsToQueue.length
+                jobsToQueue: jobsToQueue.length,
+                autoDraftQueued: pushCommitShas.length > 0,
             });
         } catch (error) {
             console.error('[Webhook] Error processing:', error);
