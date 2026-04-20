@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { usePageTitle } from '../hooks/usePageTitle.js';
 import { useRepositories } from "../hooks/useRepositories";
 import { useTweets } from "../hooks/useTweets";
 import { TweetGenerator } from '../components/tweet/TweetGenerator.jsx';
 
 const Dashboard = () => {
+  usePageTitle("Dashboard");
   const { loading: repoLoading, publicTotal, totalTracked } = useRepositories();
   const { tweets, loading: tweetsLoading } = useTweets({ listScope: "all" });
   const [autoTweetEnabled] = useState(true);

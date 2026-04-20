@@ -1,6 +1,7 @@
 // Fetch repositories, handle loading/error/empty states, and render a responsive grid of Repository Card items
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import RepositoryCard from './RepositoryCard.jsx';
+import { usePageTitle } from '../../hooks/usePageTitle.js';
 import { useRepositories } from '../../hooks/useRepositories.js';
 
 function toErrorMessage(err) {
@@ -34,6 +35,7 @@ function SkeletonCard() {
 }
 
 export default function RepositoryList() {
+  usePageTitle("Repositories");
   // pagination state 
   const [page, setPage] = useState(1);
   const limit = 12;

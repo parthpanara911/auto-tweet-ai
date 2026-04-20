@@ -3,6 +3,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { usePageTitle } from '../hooks/usePageTitle.js';
 import { useTweets, TWEET_MAX_LENGTH } from '../hooks/useTweets.js';
 
 function formatWhen(iso) {
@@ -158,6 +159,7 @@ function TweetHistoryCard({
 }
 
 export default function Tweets() {
+  usePageTitle("Tweets");
   const {
     tweets,
     loading,

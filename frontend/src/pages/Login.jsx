@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react';
+import { usePageTitle } from '../hooks/usePageTitle.js';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
 const Login = () => {
+  usePageTitle("Login");
   const navigate = useNavigate();
   const { isAuthenticated, initializing } = useAuth();
 
