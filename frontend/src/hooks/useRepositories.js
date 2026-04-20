@@ -73,6 +73,7 @@ export function useRepositories(options = {}) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [totalTracked, setTotalTracked] = useState(0);
   const [pagination, setPagination] = useState(null);
   const [publicTotal, setPublicTotal] = useState(null);
 
@@ -142,6 +143,9 @@ export function useRepositories(options = {}) {
         webhookPage += 1;
       }
 
+      const trackedRepoIds = new Set(webhookRepoIdToWebhookId.keys());
+      const totalTracked = trackedRepoIds.size;
+
       const publicRepos = reposNormalized
         .filter((r) => !r.isPrivate)
         .map((r) => {
@@ -157,6 +161,7 @@ export function useRepositories(options = {}) {
         });
 
       if (fetchId === fetchIdRef.current) {
+        setTotalTracked(totalTracked);
         setData(publicRepos);
         setPagination(reposPagination);
       }
@@ -265,6 +270,7 @@ export function useRepositories(options = {}) {
     page,
     limit,
     publicTotal,
+    totalTracked,
     refetch,
     byFullName,
     updateRepoOptimistic,
@@ -273,4 +279,3 @@ export function useRepositories(options = {}) {
     endpoints,
   };
 }
-

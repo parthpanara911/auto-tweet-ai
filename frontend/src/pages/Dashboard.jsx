@@ -1,49 +1,81 @@
-import React from 'react';
-import { useAuth } from '../context/AuthContext.jsx';
+import React, { useState } from 'react';
+import { useRepositories } from "../hooks/useRepositories";
+import { useTweets } from "../hooks/useTweets";
 import { TweetGenerator } from '../components/tweet/TweetGenerator.jsx';
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { loading: repoLoading, publicTotal, totalTracked } = useRepositories();
+  const { tweets, loading: tweetsLoading } = useTweets({ listScope: "all" });
+  const [autoTweetEnabled] = useState(true);
+
+  if (tweetsLoading || repoLoading) {
+    return <p className="text-gray-400">Loading dashboard...</p>;
+  }
+
+  const trackedRepos = totalTracked ?? 0;
+  const trackingStatus = trackedRepos > 0 ? "Active" : "Inactive";
+
+  const tweetsTotal = tweets.length;
+  const tweetsDraft = tweets.filter((t) => t.status === "draft").length;
+  const tweetsApproved = tweets.filter((t) => t.status === "approved").length;
+  const tweetsRejected = tweets.filter((t) => t.status === "rejected").length;
+  const tweetsPosted = tweets.filter((t) => t.status === "posted").length;
 
   return (
     <div className="space-y-4">
       <section className="grid gap-4 md:grid-cols-3">
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-xs text-gray-400 mb-1">Connected account</p>
-          <p className="text-sm text-white font-medium">{user?.username || 'GitHub user'}</p>
+
+        {/* System Activity */}
+        <div className="bg-slate-900 p-5 rounded-xl border border-slate-800">
+          <p className="text-sm text-gray-400">System Overview</p>
+          <h2 className="text-lg font-semibold text-white mt-1">
+            <span className={`text-xs ${trackingStatus === "Active" ? "text-green-400" : "text-red-400"
+              }`}>
+              ●
+            </span>{" "}
+            {trackingStatus}
+          </h2>
+          <p className="text-sm text-gray-400 mt-2">
+            Auto Tweet: {autoTweetEnabled ? "Enabled" : "Disabled"}
+          </p>
           <p className="text-xs text-gray-500 mt-1">
-            Data flows from GitHub → webhooks → queue → commit processor → AI tweet generator.
+            Repo tracking & auto-tweet status
           </p>
         </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-xs text-gray-400 mb-1">Commit tracking</p>
-          <p className="text-sm text-white font-medium">Active</p>
+
+        {/* Repository Tracking */}
+        <div className="bg-slate-900 p-5 rounded-xl border border-slate-800">
+          <p className="text-sm text-gray-400">Repositories Tracking</p>
+          <h2 className="text-lg font-semibold text-white mt-1">
+            Repositories
+          </h2>
+          <p className="text-sm text-gray-400 mt-2">
+            Total repositories: {publicTotal ?? '—'}
+          </p>
           <p className="text-xs text-gray-500 mt-1">
-            New commits are queued via Redis + Bull for background processing.
+            Tracked repos: {totalTracked}
           </p>
         </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-xs text-gray-400 mb-1">Tweet generation</p>
-          <p className="text-sm text-white font-medium">AI-powered</p>
+
+        {/* Tweet Generation */}
+        <div className="bg-slate-900 p-5 rounded-xl border border-slate-800">
+          <p className="text-sm text-gray-400">Tweet Generation</p>
+          <h2 className="text-lg font-semibold text-white mt-1">
+            AI-powered
+          </h2>
+          <p className="text-sm text-gray-400 mt-2">
+            Total tweets: {tweetsTotal}
+          </p>
           <p className="text-xs text-gray-500 mt-1">
-            AutoTweetAI turns processed commits into tweet-ready summaries.
+            Drafts: {tweetsDraft} • Approved: {tweetsApproved} • Rejected: {tweetsRejected} • Posted: {tweetsPosted}
           </p>
         </div>
       </section>
 
       <TweetGenerator />
 
-      <section className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-        <h2 className="text-sm font-semibold text-white mb-2">Activity overview</h2>
-        <p className="text-sm text-gray-300">
-          This is your central view into how AutoTweetAI interacts with your GitHub commits and
-          generates tweets. Future versions can surface recent commits, generated tweets, and rate
-          limit status here.
-        </p>
-      </section>
     </div>
   );
 };
 
 export default Dashboard;
-

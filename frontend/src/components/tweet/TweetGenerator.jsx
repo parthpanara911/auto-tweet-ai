@@ -18,6 +18,7 @@ export function TweetGenerator() {
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState(null);
   const [statusMessage, setStatusMessage] = useState(null);
+  const [autoTweetEnabled] = useState(true);
 
   // Repository filtering: same source as tracking UI — only repos with an active webhook count as "tracked"
   const trackedRepos = useMemo(
@@ -123,7 +124,11 @@ export function TweetGenerator() {
       <div className="grid gap-8 lg:grid-cols-2">
         <div className="space-y-6">
           <p className="text-sm text-gray-500">
-            Auto draft is enabled — tweets are generated automatically when you push to tracked repositories. When selecting commits manually, click “Generate Tweet” to create tweets.
+            Auto draft is {autoTweetEnabled ? "enabled" : "disabled"} —{" "}
+            {autoTweetEnabled
+              ? "tweets are generated automatically when you push to tracked repositories."
+              : "automatic tweet generation is turned off."}
+            {" "}When selecting commits manually, click “Generate Tweet” to create tweets.
           </p>
 
           {blockManualWithoutRepos ? (
