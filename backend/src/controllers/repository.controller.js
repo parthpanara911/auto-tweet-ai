@@ -10,28 +10,25 @@ class RepositoryController {
         try {
             const user = req.user;
 
+            const force = req.query.force === 'true';
+
             const decryptedToken = decrypt(user.githubAccessToken);
             const githubService = new GithubService({
                 accessToken: decryptedToken,
                 redisClient
             });
 
-            const syncedRepos = await RepositoryService.syncUserRepositories(
+            const result = await RepositoryService.syncUserRepositories(
                 user,
-                githubService
+                githubService,
+                { force }
             );
 
-            res.json({
-                message: 'Repositories synced successfully',
-                count: syncedRepos.length,
-                repositories: syncedRepos.map((repo) => ({
-                    id: repo._id,
-                    name: repo.name,
-                    fullName: repo.fullName,
-                    description: repo.description,
-                    url: repo.url,
-                    isTracking: repo.isTracking,
-                })),
+            return res.json({
+                message: result.skipped
+                    ? 'Sync skipped (recently synced)'
+                    : 'Repositories synced successfully',
+                ...result,
             });
         } catch (error) {
             next(error);

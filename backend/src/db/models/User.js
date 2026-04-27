@@ -50,6 +50,10 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    lastRepoSyncAt: {
+        type: Date,
+        default: null,
+    },
     deletedAt: Date,
 }, { timestamps: true });
 

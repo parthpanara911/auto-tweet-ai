@@ -2,19 +2,45 @@ import Repository from "../db/models/Repository.js";
 import AppError from "../errors/AppError.js";
 
 class RepositoryService {
-    async syncUserRepositories(user, githubService) {
+    async syncUserRepositories(user, githubService, options = {}) {
         try {
+            const { force = false } = options;
+
+            const SYNC_INTERVAL = 1000 * 60 * 60 * 6;
+
+            const now = Date.now();
+            const lastSync = user.lastRepoSyncAt
+                ? new Date(user.lastRepoSyncAt).getTime()
+                : 0;
+
+            // Skip if recently synced 
+            if (!force && (now - lastSync) < SYNC_INTERVAL) {
+                return {
+                    skipped: true,
+                    message: 'Recently synced',
+                };
+            }
+
             const repos = await this._fetchAllReposWithPagination(githubService);
 
             if (repos.length === 0) return [];
 
+            const githubRepoIds = new Set(repos.map(r => r.githubId));
+
+            await Repository.deleteMany({
+                userId: user._id,
+                githubId: { $nin: Array.from(githubRepoIds) }
+            });
+
             const upsertPromises = repos.map((repo) =>
                 Repository.findOneAndUpdate(
-                    { githubId: repo.githubId },
+                    {
+                        githubId: repo.githubId,
+                        userId: user._id,
+                    },
                     {
                         ...repo,
                         userId: user._id,
-                        isTracking: false,
                         lastSyncedAt: new Date(),
                     },
                     { upsert: true, new: true }
@@ -22,7 +48,14 @@ class RepositoryService {
             );
 
             const syncedRepos = await Promise.all(upsertPromises);
-            return syncedRepos;
+
+            user.lastRepoSyncAt = new Date();
+            await user.save();
+
+            return {
+                synced: true,
+                count: syncedRepos.length,
+            };
         } catch (error) {
             throw error;
         }
