@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import RepositoryCard from './RepositoryCard.jsx';
 import { usePageTitle } from '../../hooks/usePageTitle.js';
 import { useRepositories } from '../../hooks/useRepositories.js';
+import { useAuth } from '../../context/AuthContext.jsx';
 
 function toErrorMessage(err) {
   if (!err) return '';
@@ -50,7 +51,15 @@ export default function RepositoryList() {
     updateRepoOptimistic,
     enableTracking,
     disableTracking,
+    syncRepositories,
   } = useRepositories({ page, limit });
+  const { initializing, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (!initializing && isAuthenticated) {
+      refetch();
+    }
+  }, [initializing, isAuthenticated, refetch]);
 
   const [query, setQuery] = useState('');
   const [busyByRepo, setBusyByRepo] = useState(() => new Map());
@@ -211,8 +220,14 @@ export default function RepositoryList() {
           <button
             type="button"
             className="px-3 py-2 rounded-lg text-sm font-medium border bg-gray-900 border-gray-800 text-gray-200 hover:bg-gray-900/60"
-            // re-fetch current repository + tracking state from backend
-            onClick={() => refetch()}
+            onClick={async () => {
+              try {
+                await syncRepositories(true);
+                await refetch();
+              } catch (err) {
+                console.error(err);
+              }
+            }}
           >
             Refresh
           </button>

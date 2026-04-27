@@ -7,6 +7,7 @@ const DEFAULT_ENDPOINTS = Object.freeze({
   track: '/api/repositories/track',
   webhooks: '/api/webhooks',
   registerWebhook: '/api/webhooks/register',
+  sync: '/api/repositories/sync',
 });
 
 function normalizeRepo(raw) {
@@ -218,6 +219,13 @@ export function useRepositories(options = {}) {
     );
   }, []);
 
+  const syncRepositories = useCallback(async (force = false) => {
+    const query = force ? '?force=true' : '';
+    await apiClient.post(`${endpoints.sync}${query}`);
+  },
+    [endpoints.sync]
+  );
+
   const trackRepo = useCallback(
     async (fullName) => {
       // enable tracking for a repo
@@ -276,6 +284,7 @@ export function useRepositories(options = {}) {
     updateRepoOptimistic,
     enableTracking,
     disableTracking,
+    syncRepositories,
     endpoints,
   };
 }

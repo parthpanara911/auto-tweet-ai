@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { fetchMe, logoutRequest } from '../services/auth.service.js';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { fetchMe, logoutRequest, syncRepositories } from '../services/auth.service.js';
 
 const AuthContext = createContext(null);
 
@@ -7,17 +7,38 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [initializing, setInitializing] = useState(true);
 
+  const hasSyncedRef = useRef(false);
+
   useEffect(() => {
+    let isMounted = true;
+
     fetchMe()
-      .then((data) => {
+      .then(async (data) => {
+        if (!isMounted) return;
         setUser(data.user);
+
+        if (!hasSyncedRef.current) {
+          hasSyncedRef.current = true;
+
+          try {
+            await syncRepositories();
+          } catch (err) {
+            console.error('Repo sync failed', err);
+          }
+        }
       })
       .catch(() => {
+        if (!isMounted) return;
         setUser(null);
       })
       .finally(() => {
+        if (!isMounted) return;
         setInitializing(false);
       });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const refreshSession = async () => {
@@ -54,9 +75,6 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 };
-
