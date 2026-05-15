@@ -72,52 +72,74 @@ class AIProviderService {
                 500,
                 'AI_GENERATION_FAILED'
             );
-
         }
     }
 
     _buildPrompt(commitContext) {
-        const { commits, userStyle = 'professional' } = commitContext;
+        const { commits, metadata = {}, tech = {} } = commitContext;
 
-        const commitsSummary = commits.map((commit, index) => {
-            return `${index + 1}. Message: "${this._sanitizeText(commit.message)}"
-            Files: ${commit.files && commit.files.length > 0 ?
-                    commit.files.slice(0, 3).join(', ') : 'various files'}
-                    Changes: +${commit.additions || 0} lines, -${commit.deletions || 0} lines`;
-        }).join('\n\n');
+        const commitsSummary = commits
+            .map((commit) => {
+                const msg = this._sanitizeText(commit.message);
+                const scale = (commit.additions || 0) + (commit.deletions || 0);
+                const files = (commit.files || []).slice(0, 4).join(', ');
+                const scaleHint =
+                    scale > 300 ? 'large change' :
+                        scale > 80 ? 'medium change' :
+                            scale > 0 ? 'small change' : '';
 
-        const styleGuide = {
-            professional:
-                'professional but friendly tone, suitable for a developer audience',
-            technical: 'technical and detailed, highlight specific improvements',
-            casual: 'casual and fun, use conversational language',
-            motivational:
-                'motivational and inspiring, emphasize progress and achievements',
-        };
+                const parts = [`- ${msg}`];
+                if (files) parts.push(`  files: ${files}`);
+                if (scaleHint) parts.push(`  size: ${scaleHint} (+${commit.additions || 0}/-${commit.deletions || 0} lines)`);
+                return parts.join('\n');
+            })
+            .join('\n');
 
-        const selectedStyle = styleGuide[userStyle] || styleGuide.professional;
+        const techHint = [
+            ...(tech.languages || []),
+            ...(tech.frameworks || []),
+        ].slice(0, 3).join(', ');
 
-        const prompt = `You are a helpful assistant that generates engaging tweets about software commits.
+        // Randomize tweet opening style so tweets don't feel repetitive
+        const openingPatterns = [
+            'Start mid-thought, as if continuing a conversation.',
+            'Open with the specific thing you changed, not why.',
+            'Open with what broke, then what you did about it.',
+            'Lead with the outcome, not the action.',
+            'Start with a short clause that sets the problem, then the fix.',
+        ];
+        const chosenPattern = openingPatterns[Math.floor(Math.random() * openingPatterns.length)];
 
-COMMITS TO SUMMARIZE:
+        // example tweets to teach the AI, These are references for tone only, not templates to copy
+        const voiceExamples = [
+            'spent way too long on this auth redirect bug. turned out to be a missing await. classic.',
+            'rewrote the file upload handler from scratch. old one was doing 3 round trips for no reason.',
+            'dark mode is finally not broken on mobile. CSS specificity was the culprit, obviously.',
+            'pulled pagination out of the component and into a hook. should have done this months ago.',
+            'rate limiting is in. took longer to test edge cases than to write the actual middleware.',
+        ].sort(() => Math.random() - 0.5).slice(0, 2).join('\n- ');
+
+        const prompt = `You are a developer who tweets casually about the code you ship. \
+You write like a real person: lowercase is fine, sentences can be blunt or incomplete, \
+you reference the actual work without overselling it.
+
+Here is your recent work:
 ${commitsSummary}
+${techHint ? `Tech involded: ${techHint}` : ''}
 
-TASK:
-Create ONE engaging tweet (maximum 280 characters) that:
-- Summarizes what was accomplished across these commits
-- Uses a ${selectedStyle}
-- Includes relevant hashtags like #dev, #coding, #opensource if appropriate
-- Is NOT spam or misleading
-- Does NOT include emojis
+Write one tweet about this work. ${chosenPattern}
 
-CONSTRAINTS:
-- Maximum 280 characters (STRICT - count every character including spaces and hashtags)
-- No spam, no misleading claims
-- No emojis
-- No links
-- Professional quality only
+Your voice sounds like these examples (do not copy them, only match the register):
+- ${voiceExamples}
 
-Generate ONLY the tweet text, nothing else. Do not include explanations or quotation marks.`;
+The tweet must:
+- Be under 280 characters
+- Mention something specific from the commits above (a file, a behaviour, a bug, a decision)
+- Sound like you wrote it in 20 seconds, not like a product announcement
+- Use no emojis, no links, no hashtags unless one fits without forcing it (max 1)
+- Not start with "just", "finally", "shipped", or "excited"
+
+Reply with the tweet text only. Nothing else.`;
 
         return prompt;
     }
@@ -153,12 +175,7 @@ Generate ONLY the tweet text, nothing else. Do not include explanations or quota
             /i am unable/i,
         ];
 
-        for (const pattern of invalidPatterns) {
-            if (pattern.test(text)) {
-                return false;
-            }
-        }
-        return true;
+        return !invalidPatterns.some((pattern) => pattern.test(text));
     }
 
     _truncateToTwitterLimit(text, limit = 280) {
