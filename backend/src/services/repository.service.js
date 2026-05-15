@@ -43,7 +43,7 @@ class RepositoryService {
                         userId: user._id,
                         lastSyncedAt: new Date(),
                     },
-                    { upsert: true, new: true }
+                    { upsert: true, returnDocument: 'after' }
                 )
             );
 
@@ -111,7 +111,7 @@ class RepositoryService {
                         lastSyncedAt: new Date()
                     }
                 },
-                { new: true, upsert: true }
+                { returnDocument: 'after', upsert: true }
             );
 
             return repo;
@@ -125,7 +125,7 @@ class RepositoryService {
             const repo = await Repository.findOneAndUpdate(
                 { _id: repositoryId, userId },
                 { $set: { isTracking: false } },
-                { new: true },
+                { returnDocument: 'after' },
             )
 
             if (!repo) {

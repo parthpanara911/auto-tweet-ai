@@ -135,7 +135,7 @@ class TweetRepository {
             const updated = await Tweet.findByIdAndUpdate(
                 { _id: tweetId, status: 'draft' },
                 updateData,
-                { new: true }
+                { returnDocument: 'after' }
             ).lean();
 
             if (!updated) {
@@ -191,7 +191,7 @@ class TweetRepository {
                     isEdited: true,
                     editedAt: new Date(),
                 },
-                { new: true }
+                { returnDocument: 'after' }
             ).lean();
 
             if (!updated) {
@@ -240,7 +240,7 @@ class TweetRepository {
                     status: 'posted',
                     postedAt: new Date(),
                 },
-                { new: true }
+                { returnDocument: 'after' }
             ).populate(TWEET_COMMIT_POPULATE).lean();
 
             if (tweet?.commitIds?.length) {

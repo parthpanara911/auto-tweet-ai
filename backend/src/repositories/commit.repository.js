@@ -129,7 +129,7 @@ class CommitRepository {
                 processingStatus: status,
                 isProcessed: status === 'completed'
             },
-            { new: true, lean: true }
+            { returnDocument: 'after', lean: true }
         ).exec();
     }
 
