@@ -126,9 +126,9 @@ export function TweetGenerator() {
           <p className="text-sm text-gray-500">
             Auto draft is {autoTweetEnabled ? "enabled" : "disabled"} —{" "}
             {autoTweetEnabled
-              ? "tweets are generated automatically when you push to tracked repositories."
+              ? "when meaningful commits like feat and refactor are pushed to tracked repositories, AI automatically generates tweet drafts."
               : "automatic tweet generation is turned off."}
-            {" "}When selecting commits manually, click “Generate Tweet” to create tweets.
+            {" "}For manual generation, select commits and click “Generate Tweet” to create tweet drafts.
           </p>
 
           {blockManualWithoutRepos ? (

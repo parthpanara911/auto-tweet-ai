@@ -21,7 +21,7 @@ const Dashboard = () => {
   const tweetsDraft = tweets.filter((t) => t.status === "draft").length;
   const tweetsApproved = tweets.filter((t) => t.status === "approved").length;
   const tweetsRejected = tweets.filter((t) => t.status === "rejected").length;
-  const tweetsPosted = tweets.filter((t) => t.status === "posted").length;
+  // const tweetsPosted = tweets.filter((t) => t.status === "posted").length;
 
   return (
     <div className="space-y-4">
@@ -69,7 +69,7 @@ const Dashboard = () => {
             Total tweets: {tweetsTotal}
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            Drafts: {tweetsDraft} • Approved: {tweetsApproved} • Rejected: {tweetsRejected} • Posted: {tweetsPosted}
+            Drafts: {tweetsDraft} • Approved: {tweetsApproved} • Rejected: {tweetsRejected}
           </p>
         </div>
       </section>
