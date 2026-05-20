@@ -5,12 +5,15 @@ class TweetController {
     async getUserTweets(req, res, next) {
         try {
             const userId = req.user._id;
-            const { page = 1, limit = 10, status = null } = req.query;
+            const { page = 1, limit = 10, status = null, search = '' } = req.query;
+            const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+            const parsedLimit = Math.min(50, Math.max(1, parseInt(limit, 10) || 10));
 
             const result = await TweetService.getUserTweets(userId, {
-                page: parseInt(page),
-                limit: parseInt(limit),
+                page: parsedPage,
+                limit: parsedLimit,
                 status,
+                search,
             });
 
             res.json({

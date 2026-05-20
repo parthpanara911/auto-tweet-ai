@@ -52,34 +52,93 @@ class TweetRepository {
                 page = 1,
                 limit = 10,
                 status = null,
+                search = '',
                 sortBy = 'createdAt',
                 sortOrder = -1
             } = options;
 
-            const skip = (page - 1) * limit;
+            const pageNum = Math.max(1, Number(page) || 1);
+            const limitNum = Math.min(50, Math.max(1, Number(limit) || 10));
+            const skip = (pageNum - 1) * limitNum;
+            const searchTerm = String(search || '').trim();
 
-            const query = { userId };
+            const query = { userId: new mongoose.Types.ObjectId(userId) };
+            if (status) query.status = status;
 
-            if (status) {
-                query.status = status;
+            const latestWindowLimit = 50;
+            const windowPipeline = [
+                { $match: query },
+                { $sort: { [sortBy]: sortOrder } },
+                { $limit: latestWindowLimit },
+            ];
+
+            if (searchTerm) {
+                const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(escaped, 'i');
+                windowPipeline.push(
+                    {
+                        $lookup: {
+                            from: 'commits',
+                            localField: 'commitIds',
+                            foreignField: '_id',
+                            as: 'commitDocs',
+                        },
+                    },
+                    {
+                        $lookup: {
+                            from: 'repositories',
+                            localField: 'commitDocs.repositoryId',
+                            foreignField: '_id',
+                            as: 'repoDocs',
+                        },
+                    },
+                    {
+                        $match: {
+                            $or: [
+                                { content: regex },
+                                { status: regex },
+                                { 'repoDocs.fullName': regex },
+                            ],
+                        },
+                    }
+                );
             }
 
-            const tweets = await Tweet.find(query)
+            const [result] = await Tweet.aggregate([
+                ...windowPipeline,
+                {
+                    $facet: {
+                        items: [
+                            { $skip: skip },
+                            { $limit: limitNum },
+                            { $project: { commitDocs: 0, repoDocs: 0 } },
+                        ],
+                        totalCount: [{ $count: 'count' }],
+                    },
+                },
+            ]);
+
+            const rawTweets = Array.isArray(result?.items) ? result.items : [];
+            const tweetIds = rawTweets.map((t) => t._id);
+
+            const populatedTweets = await Tweet.find({ _id: { $in: tweetIds } })
                 .populate(TWEET_COMMIT_POPULATE)
-                .sort({ [sortBy]: sortOrder })
-                .skip(skip)
-                .limit(limit)
                 .lean();
 
-            const total = await Tweet.countDocuments(query);
+            const tweetsById = new Map(populatedTweets.map((t) => [String(t._id), t]));
+            const tweets = rawTweets
+                .map((row) => tweetsById.get(String(row._id)))
+                .filter(Boolean);
+
+            const total = result.totalCount?.[0]?.count || 0;
 
             return {
                 tweets,
                 pagination: {
-                    page,
-                    limit,
+                    page: pageNum,
+                    limit: limitNum,
                     total,
-                    pages: Math.ceil(total / limit),
+                    pages: Math.max(1, Math.ceil(total / limitNum)),
                 },
             };
         } catch (error) {
