@@ -1,5 +1,5 @@
 /**
- * useTweets — calls GET /api/tweets (either drafts only or full history), polls for dashboard updates, and handles draft-related actions.
+ * Handles tweet fetching, polling, pagination, search, and draft actions for the dashboard and tweet history pages.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '../services/apiClient.js';
@@ -52,10 +52,13 @@ function sortTweetsNewestFirst(list) {
 export function useTweets(options = {}) {
   const limit = options.limit ?? 20;
   const listScope = options.listScope ?? 'drafts';
+  const page = options.page ?? 1;
+  const search = options.search ?? '';
 
   const [tweets, setTweets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState(null);
   const [busyTweetId, setBusyTweetId] = useState(null);
   const [actionError, setActionError] = useState(null);
 
@@ -65,20 +68,23 @@ export function useTweets(options = {}) {
   const fetchTweets = useCallback(async () => {
     setError(null);
     try {
-      const queryParams = { page: 1, limit };
+      const queryParams = { page, limit };
       if (listScope === 'drafts') queryParams.status = 'draft';
+      if (listScope === 'all' && search.trim()) queryParams.search = search.trim();
       const query = buildQuery(queryParams);
       const payload = await apiClient.get(`/api/tweets${query}`);
       const inner = payload?.data;
       const tweetsRaw = Array.isArray(inner?.tweets) ? inner.tweets : [];
       const next = sortTweetsNewestFirst(tweetsRaw.map(normalizeTweet).filter((t) => t?.id));
       setTweets(next);
+      setPagination(inner?.pagination ?? null);
     } catch (e) {
       setError(e);
+      setPagination(null);
     } finally {
       setLoading(false);
     }
-  }, [limit, listScope]);
+  }, [limit, listScope, page, search]);
 
   useEffect(() => {
     setLoading(true);
@@ -174,6 +180,7 @@ export function useTweets(options = {}) {
   return {
     tweets,
     drafts: tweets,
+    pagination,
     loading,
     error,
     refetchTweets: fetchTweets,
