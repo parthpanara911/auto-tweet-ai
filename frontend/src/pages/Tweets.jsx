@@ -1,5 +1,5 @@
 /**
- * Tweets — full tweet history (all statuses) from GET /api/tweets with client-side newest-first ordering.
+ * Displays recent tweet history with filtering, pagination, and draft workflow actions.
  */
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -160,8 +160,13 @@ function TweetHistoryCard({
 
 export default function Tweets() {
   usePageTitle("Tweets");
+  const [page, setPage] = useState(1);
+  const [query, setQuery] = useState('');
+  const limit = 10;
+
   const {
     tweets,
+    pagination,
     loading,
     error,
     refetchTweets,
@@ -171,16 +176,38 @@ export default function Tweets() {
     busyTweetId,
     actionError,
     clearActionError,
-  } = useTweets({ listScope: 'all', limit: 100 });
+  } = useTweets({ listScope: 'all', limit, page, search: query });
+
+  useEffect(() => {
+    setPage(1);
+  }, [query]);
 
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-3 border-b border-gray-800 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold text-white sm:text-xl">Tweet history</h1>
-          <p className="mt-1 text-sm text-gray-400">All generated tweets, newest first.</p>
+          <p className="mt-1 text-sm text-gray-400">
+            Latest 50 generated tweets, newest first.
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            Showing up to <span className="text-gray-300">50</span> recent tweets
+            {pagination?.pages ? (
+              <>
+                {' '}
+                • Page <span className="text-gray-300">{page}</span> of{' '}
+                <span className="text-gray-300">{pagination.pages}</span>
+              </>
+            ) : null}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search tweets…"
+            className="w-full sm:w-64 bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-700"
+          />
           <button
             type="button"
             onClick={() => refetchTweets()}
@@ -241,19 +268,54 @@ export default function Tweets() {
       ) : null}
 
       {!error && tweets.length > 0 ? (
-        <ul className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {tweets.map((tweet) => (
-            <li key={tweet.id}>
-              <TweetHistoryCard
-                tweet={tweet}
-                busy={busyTweetId === tweet.id}
-                onSaveContent={saveDraftContent}
-                onApprove={approveDraft}
-                onReject={rejectDraft}
-              />
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-4">
+          <ul className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {tweets.map((tweet) => (
+              <li key={tweet.id}>
+                <TweetHistoryCard
+                  tweet={tweet}
+                  busy={busyTweetId === tweet.id}
+                  onSaveContent={saveDraftContent}
+                  onApprove={approveDraft}
+                  onReject={rejectDraft}
+                />
+              </li>
+            ))}
+          </ul>
+
+          {pagination?.pages ? (
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${page <= 1
+                  ? 'bg-gray-900 border-gray-800 text-gray-600 cursor-not-allowed'
+                  : 'bg-gray-900 border-gray-800 text-gray-200 hover:bg-gray-900/60'
+                  }`}
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </button>
+
+              <div className="text-xs text-gray-500">
+                Page <span className="text-gray-200">{page}</span> of{' '}
+                <span className="text-gray-200">{pagination.pages}</span>
+              </div>
+
+              <button
+                type="button"
+                className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${page >= pagination.pages
+                  ? 'bg-gray-900 border-gray-800 text-gray-600 cursor-not-allowed'
+                  : 'bg-gray-900 border-gray-800 text-gray-200 hover:bg-gray-900/60'
+                  }`}
+                disabled={page >= pagination.pages}
+                onClick={() => setPage((p) => Math.min(pagination.pages, p + 1))}
+              >
+                Next
+              </button>
+            </div>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
