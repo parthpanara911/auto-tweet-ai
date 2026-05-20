@@ -13,18 +13,12 @@ class BatchTweetGeneratorService {
         this.maxAutoDraftsPerRepoPerHour = 6;
         this.autoCommitWaitMs = 90000;
         this.autoCommitPollMs = 3000;
-        this.minSingleCommitSignalLength = 40;
-        this.trivialCommitMessages = new Set([
-            'fix',
-            'update',
-            'minor changes',
-            'wip',
-            'test',
-            'chore',
-            'cleanup',
-        ]);
+        this.allowedAutoTweetPrefixes = ['feat', 'refactor'];
     }
 
+    /**
+     * Generates a scheduled AI tweet draft using recent unprocessed commits
+     */
     async generateDailyTweets(userId) {
         try {
             console.log('Starting daily tweet generation', { userId });
@@ -99,6 +93,9 @@ class BatchTweetGeneratorService {
         }
     }
 
+    /**
+     * Generates a tweet draft manually using selected commits
+     */
     async generateOnDemandTweet(userId, commitIds = null) {
         try {
             console.log('Generating on-demand tweet', { userId, commitIds });
@@ -186,27 +183,9 @@ class BatchTweetGeneratorService {
         }
     }
 
-    async _fetchUnprocessedCommits(userId, limit = null) {
-        const finalLimit = limit || this.commitBatchSize;
-
-        const commits = await Commit.find({
-            userId,
-            isProcessed: true,
-            tweeted: { $ne: true },
-        })
-            .select('message additions deletions filesChanged timestamp url files')
-            .sort({ timestamp: -1 })
-            .limit(finalLimit)
-            .lean();
-
-        return commits;
-    }
-
     /**
-     * Auto push flow:
+     * Handles automatic tweet generation after GitHub push events
      * waits for commit-processing jobs from the same push to finish
-     * filters low-signal commits
-     * applies lightweight per-repo/per-hour draft throttle
      */
     async generateAutoPushTweet(userId, repositoryId, commitShas = [], deliveryId = null) {
         try {
@@ -235,23 +214,23 @@ class BatchTweetGeneratorService {
             );
 
             const qualityCommits = processedCommits.filter((commit) =>
-                this._isMeaningfulCommitMessage(commit.message)
+                this._isAllowedAutoTweetCommit(commit.message)
             );
 
-            const combinedMessageLength = qualityCommits
-                .map((c) => (c.message || '').trim().length)
-                .reduce((sum, len) => sum + len, 0);
-
-            // Avoid weak drafts from tiny/trivial pushes
-            if (
-                qualityCommits.length === 0 ||
-                (qualityCommits.length < 2 && combinedMessageLength < this.minSingleCommitSignalLength)
-            ) {
+            if (qualityCommits.length === 0) {
+                console.log('Auto push skipped: no commits match allowed prefixes', {
+                    userId,
+                    repositoryId,
+                    deliveryId,
+                    totalProcessed: processedCommits.length,
+                    allowedPrefixes: this.allowedAutoTweetPrefixes,
+                    commitMessages: processedCommits.map((c) => c.message),
+                });
                 return {
                     status: 'skipped',
-                    reason: 'low_quality',
-                    message: 'Auto draft skipped due to low commit signal',
-                    commitCount: qualityCommits.length,
+                    reason: 'unsupported_commit_type',
+                    message: 'Auto draft skipped: no commits match allowed types (feat, refactor)',
+                    commitCount: 0,
                 };
             }
 
@@ -306,6 +285,22 @@ class BatchTweetGeneratorService {
                 'AUTO_PUSH_TWEET_GENERATION_FAILED'
             );
         }
+    }
+
+    async _fetchUnprocessedCommits(userId, limit = null) {
+        const finalLimit = limit || this.commitBatchSize;
+
+        const commits = await Commit.find({
+            userId,
+            isProcessed: true,
+            tweeted: { $ne: true },
+        })
+            .select('message additions deletions filesChanged timestamp url files')
+            .sort({ timestamp: -1 })
+            .limit(finalLimit)
+            .lean();
+
+        return commits;
     }
 
     _buildCommitContext(commits) {
@@ -456,11 +451,15 @@ class BatchTweetGeneratorService {
         };
     }
 
-    _isMeaningfulCommitMessage(message) {
-        const normalized = String(message || '').trim().toLowerCase();
-        if (!normalized) return false;
-        if (this.trivialCommitMessages.has(normalized)) return false;
-        return normalized.length >= 6;
+    _isAllowedAutoTweetCommit(message) {
+        if (!message || typeof message !== 'string') return false;
+
+        const normalized = message.trim().toLowerCase();
+
+        return this.allowedAutoTweetPrefixes.some((prefix) =>
+            normalized.startsWith(`${prefix}:`) ||
+            normalized.startsWith(`${prefix}(`)
+        );
     }
 
     async _hasRecentOverlappingAutoDraft(userId, commitIds) {
