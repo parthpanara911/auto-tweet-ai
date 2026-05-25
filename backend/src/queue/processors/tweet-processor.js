@@ -92,6 +92,21 @@ class TweetProcessor {
                 };
             }
 
+            if (result.status === 'skipped') {
+                console.log('[TweetProcessor] Job skipped', {
+                    jobId: job.id,
+                    userId,
+                    reason: result.reason || 'No eligible commits',
+                    triggerType,
+                    duration: Date.now() - startTime,
+                });
+
+                return {
+                    status: 'skipped',
+                    reason: result.reason || 'No eligible commits',
+                };
+            }
+
             if (result.status === 'generation_failed') {
                 console.warn('[TweetProcessor] AI generation failed', {
                     jobId: job.id,
