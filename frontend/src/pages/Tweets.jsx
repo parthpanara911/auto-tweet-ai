@@ -201,7 +201,7 @@ export default function Tweets() {
             ) : null}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -212,7 +212,7 @@ export default function Tweets() {
             type="button"
             onClick={() => refetchTweets()}
             disabled={loading}
-            className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-800 disabled:opacity-50"
+            className="px-3 py-2 rounded-lg text-sm font-medium border bg-gray-900 border-gray-800 text-gray-200 hover:bg-gray-900/60"
           >
             Refresh
           </button>
