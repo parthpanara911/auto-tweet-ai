@@ -17,7 +17,7 @@ const pageConfig = {
   },
 };
 
-const Navbar = () => {
+const Navbar = ({ setMobileOpen }) => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -30,7 +30,7 @@ const Navbar = () => {
   const handleLogout = async () => {
     setMenuOpen(false);
     await logout();
-    // Use hard redirect to guarantee layout teardown and cookie re-check.
+    // Force a fresh app load after logout to ensure the latest auth state is applied    
     window.location.assign('/');
   };
 
@@ -44,29 +44,52 @@ const Navbar = () => {
 
   return (
     <header className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
-      <div>
-        {/* Breadcrumb */}
-        {currentPage.title !== "Dashboard" && (
-          <p className="text-sm mb-1">
-            <Link
-              to="/dashboard"
-              className="text-sky-400 hover:text-sky-300 font-medium"
+      <div className="flex items-center">
+        <div>
+          {/* Breadcrumb */}
+          {currentPage.title !== "Dashboard" && (
+            <p className="text-sm mb-1">
+              <Link
+                to="/dashboard"
+                className="text-sky-400 hover:text-sky-300 font-medium"
+              >
+                Dashboard
+              </Link>
+              <span className="text-gray-500"> / {currentPage.title}</span>
+            </p>
+          )}
+
+          {/* Mobile menu button to open the sidebar drawer */}
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="md:hidden mr-3 text-white"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              Dashboard
-            </Link>
-            <span className="text-gray-500"> / {currentPage.title}</span>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          </button>
+
+          {/* Title */}
+          <h1 className="text-xl font-semibold text-white">
+            {currentPage.title}
+          </h1>
+
+          {/* Description */}
+          <p className="text-sm text-gray-400">
+            {currentPage.description}
           </p>
-        )}
-
-        {/* Title */}
-        <h1 className="text-xl font-semibold text-white">
-          {currentPage.title}
-        </h1>
-
-        {/* Description */}
-        <p className="text-sm text-gray-400">
-          {currentPage.description}
-        </p>
+        </div>
       </div>
 
       <div className="relative">
