@@ -16,7 +16,7 @@ const DashboardLayout = () => {
       <div className="flex-1 flex flex-col">
         <Navbar setMobileOpen={setMobileOpen} />
 
-        <main className="flex-1 px-4 py-4 md:px-8 md:py-6 bg-linear-to-b from-gray-950 to-black">
+        <main className="flex-1 px-4 py-4 md:px-8 md:py-6 bg-gray-950">
           <div className="max-w-6xl mx-auto">
             <Outlet />
           </div>

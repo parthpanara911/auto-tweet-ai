@@ -14,7 +14,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
         />
       )}
 
-      <aside className={`fixed md:static top-0 left-0 h-screen w-60 bg-black border-r border-gray-800 p-4 z-50 transform transition-transform duration-300 
+      <aside className={`fixed md:static top-0 left-0 min-h-screen w-60 bg-gray-950 border-r border-gray-800 p-4 z-50 transform transition-transform duration-300 
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0 md:flex md:flex-col`}>
         <div className="mb-8">
