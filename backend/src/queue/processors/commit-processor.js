@@ -10,14 +10,20 @@ import { redisClient } from "../../config/redis.js";
 /**
  * Register commit processor with Bull queue
  */
-export const registerCommitProcessor = (queue) => {
-    queue.process('commit-processing', 5, async (job) => {
-        console.log("Processor running");
+class CommitProcessor {
+    async processJob(job) {
         const startTime = Date.now();
         const { commitSha, repositoryId, userId, payload } = job.data;
 
+        console.log("[CommitProcessor] Job started", {
+            jobId: job.id,
+            commitSha,
+            repositoryId,
+            userId,
+            attempt: job.attemptsMade
+        });
+
         try {
-            job.log(`Starting commit processing: ${commitSha}`);
             job.progress(5);
 
             if (!commitSha || !repositoryId || !userId) {
@@ -25,13 +31,15 @@ export const registerCommitProcessor = (queue) => {
             }
 
             // Check for Duplicate
-            job.log(`Checking for duplicates: ${commitSha}`);
             const existing = await Commit.findOne({ githubSha: commitSha })
                 .select('_id')
                 .lean()
                 .exec();
             if (existing) {
-                job.log(`Commit already exists, skipping: ${commitSha} `);
+                console.log("[CommitProcessor] Duplicate skipped", {
+                    jobId: job.id,
+                    commitSha
+                });
                 return {
                     status: 'skipped',
                     reason: 'duplicate',
@@ -42,7 +50,6 @@ export const registerCommitProcessor = (queue) => {
             job.progress(10);
 
             // Fetch Repository & User
-            job.log(`Fetching repository: ${repositoryId}`);
             const [repository, user] = await Promise.all([
                 Repository.findById(repositoryId).select('fullName').lean().exec(),
                 User.findById(userId).select('githubAccessToken').lean().exec()
@@ -61,7 +68,6 @@ export const registerCommitProcessor = (queue) => {
             }
 
             // Decrypt GitHub Token 
-            job.log(`Decrypting GitHub token`);
             let githubAccessToken;
             try {
                 githubAccessToken = decrypt(user.githubAccessToken);
@@ -72,8 +78,6 @@ export const registerCommitProcessor = (queue) => {
             job.progress(15);
 
             // Fetch commit details from github
-            job.log('Fetching commit details from GitHub...');
-
             const [owner, repo] = repository.fullName.split('/');
 
             const githubService = new GitHubService({
@@ -96,7 +100,6 @@ export const registerCommitProcessor = (queue) => {
 
                 commitDetails = details;
             } catch (error) {
-                job.log(`Error fetching commit details: ${error.message}`);
                 throw error;
             }
 
@@ -107,8 +110,6 @@ export const registerCommitProcessor = (queue) => {
             job.progress(50);
 
             // Calculate Complexity
-            job.log(`Calculating commit complexity...`);
-
             const additions = commitDetails.additions || 0;
             const deletions = commitDetails.deletions || 0;
             const files = commitDetails.files || [];
@@ -116,22 +117,17 @@ export const registerCommitProcessor = (queue) => {
             const complexity = CommitService.calculateComplexity(
                 additions, deletions, files);
 
-            job.log(`Complexity: ${complexity} (add:${additions}, del:${deletions}, files:${files.length})`);
             job.progress(70);
 
             // Create Metadata
-            job.log(`Creating commit metadata...`);
-
             const metadata = {
                 complexity,
-                tags: _extractTags(commitDetails.message || '')
+                tags: this._extractTags(commitDetails.message || '')
             };
 
             job.progress(75);
 
             // Save to MongoDB
-            job.log(`Saving commit to database...`);
-
             const commitDoc = new Commit({
                 githubSha: commitDetails.githubSha,
                 repositoryId,
@@ -154,12 +150,9 @@ export const registerCommitProcessor = (queue) => {
 
             await commitDoc.save();
 
-            job.log(`Commit saved to database: ${commitDoc._id}`);
             job.progress(85);
 
             // Update Repo Stats in Redis Cache
-            job.log(`Updating repository cache...`);
-
             const cacheKey = `repo:${repositoryId}:stats`;
             const stats = {
                 lastCommit: commitSha,
@@ -172,15 +165,26 @@ export const registerCommitProcessor = (queue) => {
                     EX: 3600,
                 });
             } catch (error) {
-                console.error(`Failed to update cache: ${error.message}`);
+                console.error("[CommitProcessor] Cache update failed", {
+                    commitSha,
+                    error: error.message
+                });
             }
 
             job.progress(95);
 
             // Report Success
             const processingTime = Date.now() - startTime;
-            job.log(`Completed in ${processingTime}ms`);
             job.progress(100);
+
+            console.log("[CommitProcessor] Job completed", {
+                jobId: job.id,
+                commitId: commitDoc._id.toString(),
+                commitSha,
+                complexity,
+                filesChanged: files.length,
+                duration: processingTime
+            });
 
             return {
                 status: 'completed',
@@ -191,7 +195,13 @@ export const registerCommitProcessor = (queue) => {
                 filesChanged: files.length
             };
         } catch (error) {
-            job.log(`Error processing ${commitSha}: ${error.message}`);
+            console.error("[CommitProcessor] Job failed", {
+                jobId: job.id,
+                commitSha,
+                error: error.message,
+                attempt: job.attemptsMade,
+                duration: Date.now() - startTime
+            });
 
             // Update rate limit on error for next attempt
             try {
@@ -206,38 +216,40 @@ export const registerCommitProcessor = (queue) => {
             // Throw error to let Bull handle retries
             throw error;
         }
-    });
+    }
+
+    /**
+     * Extract tags from commit message
+     */
+    _extractTags(message) {
+        if (!message || typeof message !== 'string') return [];
+
+        const tags = [];
+
+        // Extract conventional commit type
+        const typeMatch = message.match(/^(feat|fix|docs|style|refactor|test|chore|perf)/i);
+        if (typeMatch && typeMatch[1]) {
+            tags.push(typeMatch[1].toLowerCase());
+        }
+
+        // Extract scope if present 
+        const scopeMatch = message.match(/^[a-z]+(?:\(([^)]+)\))?/i);
+        if (scopeMatch && scopeMatch[1]) {
+            tags.push(`scope:${scopeMatch[1].toLowerCase()}`);
+        }
+
+        // Extract #issue references
+        const issueMatches = message.match(/#\d+/g);
+        if (issueMatches) {
+            tags.push(...issueMatches);
+        }
+
+        if (message.toLowerCase().includes('breaking change')) {
+            tags.push('breaking');
+        }
+
+        return [...new Set(tags)];
+    }
 }
 
-/**
- * Extract tags from commit message
- */
-function _extractTags(message) {
-    if (!message || typeof message !== 'string') return [];
-
-    const tags = [];
-
-    // Extract conventional commit type
-    const typeMatch = message.match(/^(feat|fix|docs|style|refactor|test|chore|perf)/i);
-    if (typeMatch && typeMatch[1]) {
-        tags.push(typeMatch[1].toLowerCase());
-    }
-
-    // Extract scope if present 
-    const scopeMatch = message.match(/^[a-z]+(?:\(([^)]+)\))?/i);
-    if (scopeMatch && scopeMatch[1]) {
-        tags.push(`scope:${scopeMatch[1].toLowerCase()}`);
-    }
-
-    // Extract #issue references
-    const issueMatches = message.match(/#\d+/g);
-    if (issueMatches) {
-        tags.push(...issueMatches);
-    }
-
-    if (message.toLowerCase().includes('breaking change')) {
-        tags.push('breaking');
-    }
-
-    return [...new Set(tags)];
-}
+export default new CommitProcessor();

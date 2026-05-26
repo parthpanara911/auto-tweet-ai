@@ -20,6 +20,13 @@ const config = {
 
     REDIS_URL: process.env.REDIS_URL,
 
+    COMMIT_QUEUE_CONCURRENCY: Number(
+        process.env.COMMIT_QUEUE_CONCURRENCY || 5
+    ),
+    TWEET_QUEUE_CONCURRENCY: Number(
+        process.env.TWEET_QUEUE_CONCURRENCY || 5
+    ),
+
     WEBHOOK_BASE_URL: process.env.WEBHOOK_BASE_URL || 'http://localhost:5000',
 
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,

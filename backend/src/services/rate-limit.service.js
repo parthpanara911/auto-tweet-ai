@@ -27,7 +27,9 @@ class RateLimitService {
             const limit = parseInt(headers['x-ratelimit-limit'] || '5000', 10);
             const reset = parseInt(headers['x-ratelimit-reset'] || Date.now() / 1000, 10);
 
-            console.log(`[Ratelimit] ${remaining}/${limit} remaining (user: ${userId})`);
+            if (process.env.NODE_ENV !== "production") {
+                console.log(`[Ratelimit] ${remaining}/${limit} remaining (user: ${userId})`);
+            }
 
             const status = {
                 remaining,
