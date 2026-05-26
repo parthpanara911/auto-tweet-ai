@@ -4,7 +4,6 @@ import connectDB from "./db/connection.js";
 import { initRedis } from "./config/redis.js";
 import { initializeQueues, commitProcessingQueue, tweetGenerationQueue } from "./queue/bull.js";
 import { setupBullBoard } from "./config/bullBoard.js";
-import { setupTestRoutes } from "./routes/test.js";
 
 const PORT = config.PORT;
 
@@ -24,11 +23,6 @@ const startServer = async () => {
             setupBullBoard(app, {
                 commitQueue: commitProcessingQueue,
                 tweetQueue: tweetGenerationQueue,
-            });
-
-            setupTestRoutes(app, {
-                commitQueue: commitProcessingQueue,
-                tweetQueue: tweetGenerationQueue
             });
 
             const pendingJobs = await commitProcessingQueue.count();
