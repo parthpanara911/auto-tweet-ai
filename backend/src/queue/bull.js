@@ -3,9 +3,14 @@ import config from "../config/environment.js";
 import { registerCommitProcessor } from "./processors/commit-processor.js";
 import TweetProcessor from "./processors/tweet-processor.js";
 
+const redisUrl = new URL(config.REDIS_URL);
+
 const redisConfig = {
-    url: config.REDIS_URL
-}
+    host: redisUrl.hostname,
+    port: Number(redisUrl.port),
+    password: redisUrl.password,
+    tls: {}
+};
 
 // Queues
 const commitProcessingQueue = new Queue('commit-processing', {
