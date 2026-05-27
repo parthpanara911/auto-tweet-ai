@@ -40,10 +40,10 @@ router.get('/github/callback',
 
         res.cookie('access_token', accessToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
+            secure: true,
+            sameSite: 'none',
             path: '/',
-            maxAge: 15 * 60 * 1000, // 15m
+            maxAge: 15 * 60 * 1000,
         });
 
         return res.redirect(`${frontendUrl}/dashboard`);
@@ -73,8 +73,8 @@ router.post(
     (req, res, next) => {
         res.clearCookie('access_token', {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
+            secure: true,
+            sameSite: 'none',
             path: '/',
         });
         next();

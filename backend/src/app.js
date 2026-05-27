@@ -14,10 +14,13 @@ import errorHandler from "./middleware/errorHandler.js";
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 app.use(cors({
-    origin: config.FRONTEND_URL,
+    origin: 'https://autotweetai.vercel.app',
     credentials: true,
 }));
+
 // Required for GitHub webhook signature verification
 app.use('/api/webhooks/github', express.raw({
     type: '*/*',
