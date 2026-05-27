@@ -17,7 +17,7 @@ const Login = () => {
   }, [initializing, isAuthenticated, navigate]);
 
   const handleGitHubLogin = () => {
-    window.location.href = '/api/auth/github';
+    window.location.href = `${import.meta.env.VITE_API_BASE_URL}/api/auth/github`;
   };
 
   return (
