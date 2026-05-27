@@ -1,6 +1,7 @@
 import express from "express";
 import passport from "passport";
 import { generateTokens, verifyToken } from "../utils/jwt.js";
+import { cookieOptions } from "../utils/cookies.js";
 import authMiddleware from "../middleware/auth.js";
 import config from "../config/environment.js";
 import Repository from "../db/models/Repository.js";
@@ -38,13 +39,17 @@ router.get('/github/callback',
 
         const frontendUrl = config.FRONTEND_URL;
 
-        res.cookie('access_token', accessToken, {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'none',
-            path: '/',
-            maxAge: 15 * 60 * 1000,
-        });
+        res.cookie(
+            'access_token',
+            accessToken,
+            cookieOptions.accessToken
+        );
+
+        res.cookie(
+            'refresh_token',
+            refreshToken,
+            cookieOptions.refreshToken
+        );
 
         return res.redirect(`${frontendUrl}/dashboard`);
     }
@@ -52,16 +57,28 @@ router.get('/github/callback',
 
 router.post('/refresh', (req, res, next) => {
     try {
-        const { refreshToken } = req.body;
+        const refreshToken = req.cookies?.refresh_token;
 
         if (!refreshToken) {
             throw new AppError('Refresh token required', 400, 'REFRESH_TOKEN_MISSING');
         }
 
         const decoded = verifyToken(refreshToken, true);
-        const { accessToken } = generateTokens(decoded.userId);
+        const { accessToken, refreshToken: newRefreshToken } = generateTokens(decoded.userId);
 
-        res.json({ accessToken });
+        res.cookie(
+            'access_token',
+            accessToken,
+            cookieOptions.accessToken
+        );
+
+        res.cookie(
+            'refresh_token',
+            newRefreshToken,
+            cookieOptions.refreshToken
+        );
+
+        return res.status(204).send();
     } catch (error) {
         next(error);
     }
@@ -73,10 +90,18 @@ router.post(
     (req, res, next) => {
         res.clearCookie('access_token', {
             httpOnly: true,
-            secure: true,
-            sameSite: 'none',
-            path: '/',
+            secure: cookieOptions.accessToken.secure,
+            sameSite: cookieOptions.accessToken.sameSite,
+            path: cookieOptions.accessToken.path,
         });
+
+        res.clearCookie('refresh_token', {
+            httpOnly: true,
+            secure: cookieOptions.refreshToken.secure,
+            sameSite: cookieOptions.refreshToken.sameSite,
+            path: cookieOptions.refreshToken.path,
+        });
+
         next();
     },
     authMiddleware,

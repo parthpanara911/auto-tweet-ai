@@ -1,6 +1,19 @@
 // API client with cookie-based authentication
 const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
+let refreshPromise = null;
+
+async function refreshSession() {
+  const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Session refresh failed');
+  }
+}
+
 async function request(path, options = {}) {
   const headers = new Headers(options.headers || {});
   headers.set('Accept', 'application/json');
@@ -17,6 +30,29 @@ async function request(path, options = {}) {
 
   const res = await fetch(url, { ...options, headers, credentials: 'include' });
   const contentType = res.headers.get('content-type') || '';
+
+  const isAuthRoute = path.includes('/api/auth/login') ||
+    path.includes('/api/auth/refresh');
+
+  if (res.status === 401 && !options._retry && !isAuthRoute) {
+    options._retry = true;
+    try {
+      if (!refreshPromise) {
+        refreshPromise = refreshSession()
+          .finally(() => {
+            refreshPromise = null;
+          });
+      }
+
+      await refreshPromise;
+      // Retry original request
+      return request(path, options);
+    } catch (refreshError) {
+      // Refresh token expired
+      window.location.href = '/login';
+      throw refreshError;
+    }
+  }
 
   if (!res.ok) {
     const errBody = contentType.includes('application/json')
@@ -43,4 +79,3 @@ export const apiClient = {
     request(path, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
   delete: (path) => request(path, { method: 'DELETE' }),
 };
-

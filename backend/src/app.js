@@ -3,7 +3,6 @@ import cors from "cors";
 import passport from "passport";
 import cookieParser from "cookie-parser";
 import "./config/passport.js";
-import config from "./config/environment.js";
 import authRouter from "./routes/auth.js";
 import repoRouter from "./routes/repositories.js";
 import webhookRouter from "./routes/webhooks.js";
@@ -14,10 +13,18 @@ import errorHandler from "./middleware/errorHandler.js";
 
 const app = express();
 
-app.set('trust proxy', 1);
+const allowedOrigins = [
+    'http://localhost:5173',
+    'https://autotweetai.vercel.app',
+];
 
 app.use(cors({
-    origin: 'https://autotweetai.vercel.app',
+    origin(origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
 }));
 
