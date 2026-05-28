@@ -13,6 +13,8 @@ import errorHandler from "./middleware/errorHandler.js";
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 const allowedOrigins = [
     'http://localhost:5173',
     'https://autotweetai.vercel.app',
