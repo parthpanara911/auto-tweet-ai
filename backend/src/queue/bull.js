@@ -6,9 +6,14 @@ const redisUrl = new URL(config.REDIS_URL);
 const redisConfig = {
     host: redisUrl.hostname,
     port: Number(redisUrl.port),
-    password: redisUrl.password,
-    tls: {}
+    password: redisUrl.password || undefined,
 };
+
+if (redisUrl.protocol === "rediss:") {
+    redisConfig.tls = {
+        servername: redisUrl.hostname,
+    };
+}
 
 // Queues
 const commitProcessingQueue = new Queue('commit-processing', {
