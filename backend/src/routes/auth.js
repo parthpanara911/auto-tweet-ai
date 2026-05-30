@@ -1,5 +1,6 @@
 import express from "express";
 import passport from "passport";
+import crypto from 'crypto';
 import { generateTokens, verifyToken } from "../utils/jwt.js";
 import { cookieOptions } from "../utils/cookies.js";
 import authMiddleware from "../middleware/auth.js";
@@ -22,22 +23,45 @@ router.get('/github', passport.authenticate('github', {
 
 router.get('/github/callback',
     passport.authenticate('github', { session: false }),
-    (req, res) => {
-        const { accessToken, refreshToken } = generateTokens(req.user._id);
+    async (req, res) => {
+        try {
+            const { accessToken, refreshToken } = generateTokens(req.user._id);
 
-        // Set auth cookie and redirect to frontend
-        const wantsJson = req.headers.accept?.includes('application/json') || req.headers['content-type'] === 'application/json';
+            const exchangeCode = crypto.randomBytes(32).toString('hex');
 
-        if (wantsJson) {
-            return res.json({
-                message: 'Login successful',
-                accessToken,
-                refreshToken,
-                user: req.user
-            });
+            // Store both tokens in Redis under this code
+            await redisClient.set(
+                `auth:exchange:${exchangeCode}`,
+                JSON.stringify({ accessToken, refreshToken }),
+                { EX: 120 }
+            );
+
+            return res.redirect(`${config.FRONTEND_URL}/auth/callback?code=${exchangeCode}`);
+        } catch (error) {
+            return res.redirect(`${config.FRONTEND_URL}/login?error=auth_failed`);
+        }
+    }
+);
+
+router.get('/exchange', async (req, res, next) => {
+    try {
+        const { code } = req.query;
+
+        if (!code || typeof code !== 'string' || code.length !== 64) {
+            throw new AppError('Invalid exchange code', 400, 'INVALID_CODE');
         }
 
-        const frontendUrl = config.FRONTEND_URL;
+        const key = `auth:exchange:${code}`;
+        const stored = await redisClient.get(key);
+
+        if (!stored) {
+            throw new AppError('Code expired or already used', 401, 'CODE_EXPIRED');
+        }
+
+        // One-time use
+        await redisClient.del(key);
+
+        const { accessToken, refreshToken } = JSON.parse(stored);
 
         res.cookie(
             'access_token',
@@ -51,9 +75,11 @@ router.get('/github/callback',
             cookieOptions.refreshToken
         );
 
-        return res.redirect(`${frontendUrl}/dashboard`);
+        return res.status(200).json({ message: 'Authenticated' });
+    } catch (error) {
+        next(error);
     }
-);
+});
 
 router.post('/refresh', (req, res, next) => {
     try {

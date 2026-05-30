@@ -32,9 +32,10 @@ async function request(path, options = {}) {
   const contentType = res.headers.get('content-type') || '';
 
   const isAuthRoute = path.includes('/api/auth/login') ||
-    path.includes('/api/auth/refresh');
+    path.includes('/api/auth/refresh') || path.includes('/api/auth/exchange');
+  const isMeRoute = path.includes('/api/auth/me');
 
-  if (res.status === 401 && !options._retry && !isAuthRoute) {
+  if (res.status === 401 && !options._retry && !isAuthRoute && !isMeRoute) {
     options._retry = true;
     try {
       if (!refreshPromise) {
@@ -48,8 +49,7 @@ async function request(path, options = {}) {
       // Retry original request
       return request(path, options);
     } catch (refreshError) {
-      // Refresh token expired
-      window.location.href = '/login';
+      window.location.replace('/login');
       throw refreshError;
     }
   }

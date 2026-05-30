@@ -9,8 +9,15 @@ export const AuthProvider = ({ children }) => {
 
   const hasSyncedRef = useRef(false);
 
+  const isAuthCallback = window.location.pathname === "/auth/callback";
+
   useEffect(() => {
     let isMounted = true;
+
+    if (isAuthCallback) {
+      setInitializing(false);
+      return;
+    }
 
     fetchMe()
       .then(async (data) => {
