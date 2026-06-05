@@ -38,7 +38,7 @@ class RepositoryController {
     async getUserRepositories(req, res, next) {
         try {
             const user = req.user;
-            const { isTracking, page = 1, limit = 10 } = req.query;
+            const { isTracking, isPrivate, page = 1, limit = 12, search = '' } = req.query;
 
             const parsedPage = parseInt(page);
             const parsedLimit = parseInt(limit);
@@ -48,8 +48,10 @@ class RepositoryController {
 
             const result = await RepositoryService.getUserRepositories(user._id, {
                 isTracking: isTracking ? isTracking === 'true' : null,
+                isPrivate: isPrivate !== undefined ? isPrivate === 'true' : null,
                 skip: (finalPage - 1) * finalLimit,
                 limit: finalLimit,
+                search,
             });
 
             res.json({

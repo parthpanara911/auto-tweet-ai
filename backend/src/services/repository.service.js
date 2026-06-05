@@ -64,15 +64,39 @@ class RepositoryService {
     async getUserRepositories(userId, options = {}) {
         const {
             isTracking = null,
-            limit = 50,
+            isPrivate = null,
+            limit = 12,
             skip = 0,
             sortBy = '-createdAt',
+            search = '',
         } = options;
 
         const query = { userId };
 
-        if (isTracking !== null) {
-            query.isTracking = isTracking;
+        if (isTracking !== null) query.isTracking = isTracking;
+        if (isPrivate !== null) query.isPrivate = isPrivate;
+
+        if (search.trim()) {
+            query.$or = [
+                {
+                    name: {
+                        $regex: search.trim(),
+                        $options: 'i',
+                    },
+                },
+                {
+                    fullName: {
+                        $regex: search.trim(),
+                        $options: 'i',
+                    },
+                },
+                {
+                    description: {
+                        $regex: search.trim(),
+                        $options: 'i',
+                    },
+                },
+            ];
         }
 
         try {

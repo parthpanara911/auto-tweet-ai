@@ -70,6 +70,7 @@ export function useRepositories(options = {}) {
   const endpoints = { ...DEFAULT_ENDPOINTS, ...(options.endpoints || {}) };
   const page = options.page ?? 1;
   const limit = options.limit ?? 12;
+  const search = options.search ?? '';
 
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -109,7 +110,7 @@ export function useRepositories(options = {}) {
 
     try {
       const reposPayload = await apiClient.get(
-        `${endpoints.list}${buildQuery({ page, limit })}`,
+        `${endpoints.list}${buildQuery({ page, limit, isPrivate: false, search })}`,
       );
 
       const reposRaw = extractRepoArray(reposPayload);
@@ -147,23 +148,22 @@ export function useRepositories(options = {}) {
       const trackedRepoIds = new Set(webhookRepoIdToWebhookId.keys());
       const totalTracked = trackedRepoIds.size;
 
-      const publicRepos = reposNormalized
-        .filter((r) => !r.isPrivate)
-        .map((r) => {
-          const hasWebhook = r.id != null && webhookRepoIdToWebhookId.has(String(r.id));
-          const webhookId = hasWebhook ? webhookRepoIdToWebhookId.get(String(r.id)) : null;
-          const tracked = hasWebhook;
-          return {
-            ...r,
-            webhookId: webhookId || null,
-            tracked,
-            trackingStatus: tracked ? 'enabled' : 'disabled',
-          };
-        });
+      const repositories = reposNormalized.map((r) => {
+        const hasWebhook = r.id !== null && webhookRepoIdToWebhookId.has(String(r.id));
+        const webhookId = hasWebhook ? webhookRepoIdToWebhookId.get(String(r.id)) : null;
+        const tracked = hasWebhook;
+
+        return {
+          ...r,
+          webhookId: webhookId || null,
+          tracked,
+          trackingStatus: tracked ? 'enabled' : 'disabled',
+        };
+      });
 
       if (fetchId === fetchIdRef.current) {
         setTotalTracked(totalTracked);
-        setData(publicRepos);
+        setData(repositories);
         setPagination(reposPagination);
       }
 
@@ -187,7 +187,7 @@ export function useRepositories(options = {}) {
         setLoading(false);
       }
     }
-  }, [endpoints.list, endpoints.webhooks, limit, page]);
+  }, [endpoints.list, endpoints.webhooks, limit, page, search]);
 
   useEffect(() => {
     fetchRepositories();

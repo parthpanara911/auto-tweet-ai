@@ -1,5 +1,5 @@
-// Fetch repositories, handle loading/error/empty states, and render a responsive grid of Repository Card items
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+// Display and manage repositories with search, pagination, tracking controls, and sync functionality
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import RepositoryCard from './RepositoryCard.jsx';
 import { usePageTitle } from '../../hooks/usePageTitle.js';
 import { useRepositories } from '../../hooks/useRepositories.js';
@@ -37,9 +37,21 @@ function SkeletonCard() {
 
 export default function RepositoryList() {
   usePageTitle("Repositories");
-  // pagination state 
+
   const [page, setPage] = useState(1);
   const limit = 12;
+
+  const [searchInput, setSearchInput] = useState('');
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setQuery(searchInput);
+      setPage(1);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const {
     data,
@@ -52,7 +64,7 @@ export default function RepositoryList() {
     enableTracking,
     disableTracking,
     syncRepositories,
-  } = useRepositories({ page, limit });
+  } = useRepositories({ page, limit, search: query });
   const { initializing, isAuthenticated } = useAuth();
 
   useEffect(() => {
@@ -61,20 +73,12 @@ export default function RepositoryList() {
     }
   }, [initializing, isAuthenticated, refetch]);
 
-  const [query, setQuery] = useState('');
   const [busyByRepo, setBusyByRepo] = useState(() => new Map());
   const [errorByRepo, setErrorByRepo] = useState(() => new Map());
 
   const pollTimeoutRef = useRef(null);
 
-  const visibleRepos = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return data;
-    return data.filter((r) => {
-      const hay = `${r.name} ${r.fullName} ${r.description} ${r.language}`.toLowerCase();
-      return hay.includes(q);
-    });
-  }, [data, query]);
+  const visibleRepos = data;
 
   const setBusy = useCallback((fullName, isBusy) => {
     // store per-repo request state to disable actions and prevent double clicks
@@ -212,8 +216,8 @@ export default function RepositoryList() {
 
         <div className="flex items-center gap-2">
           <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search repositories…"
             className="w-full sm:w-64 bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-700"
           />
