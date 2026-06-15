@@ -81,27 +81,6 @@ export function useRepositories(options = {}) {
 
   const fetchIdRef = useRef(0);
 
-  const computePublicTotal = useCallback(
-    async (reposPages) => {
-
-      if (!reposPages || typeof reposPages !== 'number') return null;
-
-      const maxPagesToScan = Math.min(reposPages, 10);
-      let count = 0;
-
-      for (let p = 1; p <= maxPagesToScan; p += 1) {
-        const payload = await apiClient.get(`${endpoints.list}${buildQuery({ page: p, limit: 50 })}`);
-        const reposRaw = extractRepoArray(payload);
-        for (const r of reposRaw) {
-          if (!r?.isPrivate) count += 1;
-        }
-      }
-
-      return maxPagesToScan === reposPages ? count : null;
-    },
-    [endpoints.list],
-  );
-
   const fetchRepositories = useCallback(async () => {
     // list repositories and normalize. 
     const fetchId = ++fetchIdRef.current;
@@ -165,18 +144,7 @@ export function useRepositories(options = {}) {
         setTotalTracked(totalTracked);
         setData(repositories);
         setPagination(reposPagination);
-      }
-
-      if (reposPagination?.pages) {
-        computePublicTotal(reposPagination.pages)
-          .then((total) => {
-            if (fetchId === fetchIdRef.current) setPublicTotal(total);
-          })
-          .catch(() => {
-            if (fetchId === fetchIdRef.current) setPublicTotal(null);
-          });
-      } else if (fetchId === fetchIdRef.current) {
-        setPublicTotal(null);
+        setPublicTotal(reposPagination?.total ?? null);
       }
     } catch (e) {
       if (fetchId === fetchIdRef.current) {

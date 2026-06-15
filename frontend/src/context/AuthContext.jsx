@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { fetchMe, logoutRequest, syncRepositories } from '../services/auth.service.js';
+import { fetchMe, logoutRequest } from '../services/auth.service.js';
 
 const AuthContext = createContext(null);
 
@@ -26,12 +26,6 @@ export const AuthProvider = ({ children }) => {
 
         if (!hasSyncedRef.current) {
           hasSyncedRef.current = true;
-
-          try {
-            await syncRepositories();
-          } catch (err) {
-            console.error('Repo sync failed', err);
-          }
         }
       })
       .catch(() => {

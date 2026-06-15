@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import RepositoryCard from './RepositoryCard.jsx';
 import { usePageTitle } from '../../hooks/usePageTitle.js';
 import { useRepositories } from '../../hooks/useRepositories.js';
-import { useAuth } from '../../context/AuthContext.jsx';
 
 function toErrorMessage(err) {
   if (!err) return '';
@@ -65,13 +64,6 @@ export default function RepositoryList() {
     disableTracking,
     syncRepositories,
   } = useRepositories({ page, limit, search: query });
-  const { initializing, isAuthenticated } = useAuth();
-
-  useEffect(() => {
-    if (!initializing && isAuthenticated) {
-      refetch();
-    }
-  }, [initializing, isAuthenticated, refetch]);
 
   const [busyByRepo, setBusyByRepo] = useState(() => new Map());
   const [errorByRepo, setErrorByRepo] = useState(() => new Map());
