@@ -43,6 +43,8 @@ export default function RepositoryList() {
   const [searchInput, setSearchInput] = useState('');
   const [query, setQuery] = useState('');
 
+  const [syncing, setSyncing] = useState(false);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setQuery(searchInput);
@@ -161,6 +163,19 @@ export default function RepositoryList() {
     [disableTracking, refetch, setBusy, setRepoError, updateRepoOptimistic],
   );
 
+  const handleRefresh =
+    async () => {
+      if (syncing) return;
+
+      try {
+        setSyncing(true);
+        await syncRepositories(true);
+        await refetch();
+      } finally {
+        setSyncing(false);
+      }
+    };
+
   useEffect(() => {
     // lightweight auto-refresh when the backend reports "pending" webhook creation
     const hasPending = data.some((r) => r.trackingStatus === 'pending');
@@ -216,16 +231,11 @@ export default function RepositoryList() {
           <button
             type="button"
             className="px-3 py-2 rounded-lg text-sm font-medium border bg-gray-900 border-gray-800 text-gray-200 hover:bg-gray-900/60"
-            onClick={async () => {
-              try {
-                await syncRepositories(true);
-                await refetch();
-              } catch (err) {
-                console.error(err);
-              }
-            }}
+            onClick={handleRefresh} disabled={syncing}
           >
-            Refresh
+            {syncing
+              ? "Refreshing..."
+              : "Refresh"}
           </button>
         </div>
       </div>

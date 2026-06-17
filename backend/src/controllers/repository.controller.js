@@ -1,5 +1,7 @@
 import GithubService from "../services/github.service.js";
 import RepositoryService from "../services/repository.service.js";
+import RepositorySyncCooldownService from "../services/repository-sync-cooldown.service.js";
+import RepositorySyncLockService from "../services/repository-sync-lock.service.js";
 import { decrypt } from "../utils/encryption.js";
 import { redisClient } from "../config/redis.js";
 import Repository from "../db/models/Repository.js";
@@ -7,12 +9,33 @@ import AppError from "../errors/AppError.js";
 
 class RepositoryController {
     async syncRepositories(req, res, next) {
-        try {
-            const user = req.user;
+        const user = req.user;
+        const userId = user._id.toString();
+        let lockAcquired = false;
 
+        try {
             const force = req.query.force === 'true';
 
             const decryptedToken = decrypt(user.githubAccessToken);
+
+            if (await RepositorySyncCooldownService.isCoolingDown(userId)) {
+                throw new AppError(
+                    "Repository sync available after 5 minutes",
+                    429,
+                    "SYNC_COOLDOWN"
+                );
+            }
+
+            lockAcquired = await RepositorySyncLockService.acquireLock(userId);
+
+            if (!lockAcquired) {
+                throw new AppError(
+                    "Sync already running",
+                    429,
+                    "SYNC_IN_PROGRESS"
+                );
+            }
+
             const githubService = new GithubService({
                 accessToken: decryptedToken,
                 redisClient
@@ -24,6 +47,8 @@ class RepositoryController {
                 { force }
             );
 
+            await RepositorySyncCooldownService.setCooldown(userId);
+
             return res.json({
                 message: result.skipped
                     ? 'Sync skipped (recently synced)'
@@ -32,6 +57,11 @@ class RepositoryController {
             });
         } catch (error) {
             next(error);
+        } finally {
+            if (lockAcquired) {
+                await RepositorySyncLockService
+                    .releaseLock(userId);
+            }
         }
     }
 
