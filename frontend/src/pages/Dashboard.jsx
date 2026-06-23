@@ -6,7 +6,7 @@ import { TweetGenerator } from '../components/tweet/TweetGenerator.jsx';
 
 const Dashboard = () => {
   usePageTitle("Dashboard");
-  const { loading: repoLoading, publicTotal, totalTracked } = useRepositories();
+  const { data: repositories, loading: repoLoading, publicTotal, totalTracked } = useRepositories();
   const { tweets, loading: tweetsLoading } = useTweets({ listScope: "all" });
   const [autoTweetEnabled] = useState(true);
 
@@ -74,7 +74,10 @@ const Dashboard = () => {
         </div>
       </section>
 
-      <TweetGenerator />
+      <TweetGenerator
+        repositories={repositories}
+        repositoriesLoading={repoLoading}
+      />
 
     </div>
   );

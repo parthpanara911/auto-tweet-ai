@@ -5,20 +5,22 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../../services/apiClient.js';
-import { useRepositories } from '../../hooks/useRepositories.js';
 import { useTweets } from '../../hooks/useTweets.js';
 import { CommitSelector } from './CommitSelector.jsx';
 import { TweetPreview } from './TweetPreview.jsx';
 
-export function TweetGenerator() {
-  const { data: repos, loading: reposLoading } = useRepositories({ page: 1, limit: 100 });
-
+export function TweetGenerator({
+  repositories = [],
+  repositoriesLoading = false }) {
   const [manualRepositoryId, setManualRepositoryId] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState(null);
   const [statusMessage, setStatusMessage] = useState(null);
   const [autoTweetEnabled] = useState(true);
+
+  const repos = repositories;
+  const reposLoading = repositoriesLoading;
 
   // Repository filtering: same source as tracking UI — only repos with an active webhook count as "tracked"
   const trackedRepos = useMemo(
