@@ -9,6 +9,7 @@ import webhookRouter from "./routes/webhooks.js";
 import commitRouter from "./routes/commits.js";
 import tweetRouter from "./routes/tweets.js";
 import healthRouter from "./routes/health.js"
+import dashboardRouter from "./routes/dashboard.js"
 import errorHandler from "./middleware/errorHandler.js";
 
 const app = express();
@@ -47,6 +48,7 @@ app.use('/api/webhooks', webhookRouter);
 app.use('/api/commits', commitRouter);
 app.use('/api/tweets', tweetRouter);
 app.use('/health', healthRouter);
+app.use('/api/dashboard', dashboardRouter);
 
 app.use(errorHandler);
 

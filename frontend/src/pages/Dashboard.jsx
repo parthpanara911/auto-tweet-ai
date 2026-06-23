@@ -1,27 +1,38 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { usePageTitle } from '../hooks/usePageTitle.js';
-import { useRepositories } from "../hooks/useRepositories";
-import { useTweets } from "../hooks/useTweets";
+import { useDashboardSummary } from "../hooks/useDashboardSummary.js";
 import { TweetGenerator } from '../components/tweet/TweetGenerator.jsx';
 
 const Dashboard = () => {
   usePageTitle("Dashboard");
-  const { data: repositories, loading: repoLoading, publicTotal, totalTracked } = useRepositories();
-  const { tweets, loading: tweetsLoading } = useTweets({ listScope: "all" });
-  const [autoTweetEnabled] = useState(true);
+  const { summary, loading: summaryLoading, error: summaryError } = useDashboardSummary();
 
-  if (tweetsLoading || repoLoading) {
+  if (summaryLoading) {
     return <p className="text-gray-400">Loading dashboard...</p>;
   }
 
-  const trackedRepos = totalTracked ?? 0;
-  const trackingStatus = trackedRepos > 0 ? "Active" : "Inactive";
+  if (summaryError) {
+    return (
+      <div className="text-red-400">
+        Failed to load dashboard.
+      </div>
+    );
+  }
 
-  const tweetsTotal = tweets.length;
-  const tweetsDraft = tweets.filter((t) => t.status === "draft").length;
-  const tweetsApproved = tweets.filter((t) => t.status === "approved").length;
-  const tweetsRejected = tweets.filter((t) => t.status === "rejected").length;
-  // const tweetsPosted = tweets.filter((t) => t.status === "posted").length;
+  const trackingStatus = summary?.system?.trackingStatus ?? "Inactive";
+  const autoTweetEnabled = summary?.system?.autoTweetEnabled ?? false;
+
+  const totalRepos = summary?.repositories?.total ?? 0;
+  const trackedRepos = summary?.repositories?.tracked ?? 0;
+
+  const tweetsTotal = summary?.tweets?.total ?? 0;
+  const tweetsDraft = summary?.tweets?.draft ?? 0;;
+  const tweetsApproved = summary?.tweets?.approved ?? 0;
+  const tweetsRejected = summary?.tweets?.rejected ?? 0;
+  // const tweetsPosted = summary?.tweets?.posted ?? 0;
+
+  const trackedRepositories =
+    summary?.repositories?.trackedRepositories ?? [];
 
   return (
     <div className="space-y-4">
@@ -52,10 +63,10 @@ const Dashboard = () => {
             Repositories
           </h2>
           <p className="text-sm text-gray-400 mt-2">
-            Total repositories: {publicTotal ?? '—'}
+            Total repositories: {totalRepos ?? '—'}
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            Tracked repos: {totalTracked}
+            Tracked repos: {trackedRepos}
           </p>
         </div>
 
@@ -75,8 +86,8 @@ const Dashboard = () => {
       </section>
 
       <TweetGenerator
-        repositories={repositories}
-        repositoriesLoading={repoLoading}
+        repositories={trackedRepositories}
+        repositoriesLoading={summaryLoading}
       />
 
     </div>

@@ -2,7 +2,7 @@
  * TweetGenerator — dashboard card for queueing tweet generation and managing draft lifecycle
  * Manual mode: repository dropdown → commits from that repo only → POST /api/tweets/generate with { commitIds }
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../../services/apiClient.js';
 import { useTweets } from '../../hooks/useTweets.js';
@@ -22,11 +22,8 @@ export function TweetGenerator({
   const repos = repositories;
   const reposLoading = repositoriesLoading;
 
-  // Repository filtering: same source as tracking UI — only repos with an active webhook count as "tracked"
-  const trackedRepos = useMemo(
-    () => repos.filter((r) => r.tracked && r.id != null),
-    [repos],
-  );
+  // Repository filtering: only repos with an active webhook count as "tracked"
+  const trackedRepos = repos;
 
   const {
     tweets,
@@ -41,7 +38,7 @@ export function TweetGenerator({
     busyTweetId,
     actionError,
     clearActionError,
-  } = useTweets({ listScope: 'drafts', limit: 20 });
+  } = useTweets({ listScope: 'drafts', limit: 1 });
 
   useEffect(() => {
     setGenerateError(null);
