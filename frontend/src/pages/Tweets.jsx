@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePageTitle } from '../hooks/usePageTitle.js';
 import { useTweets, TWEET_MAX_LENGTH } from '../hooks/useTweets.js';
+import { useDebounce } from '../hooks/useDebounce.js';
 
 function formatWhen(iso) {
   if (!iso) return '—';
@@ -161,7 +162,10 @@ function TweetHistoryCard({
 export default function Tweets() {
   usePageTitle("Tweets");
   const [page, setPage] = useState(1);
-  const [query, setQuery] = useState('');
+
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebounce(searchInput, 600)
+
   const limit = 10;
 
   const {
@@ -176,11 +180,11 @@ export default function Tweets() {
     busyTweetId,
     actionError,
     clearActionError,
-  } = useTweets({ listScope: 'all', limit, page, search: query });
+  } = useTweets({ listScope: 'all', limit, page, search: debouncedSearch });
 
   useEffect(() => {
     setPage(1);
-  }, [query]);
+  }, [debouncedSearch]);
 
   return (
     <div className="space-y-6">
@@ -203,8 +207,8 @@ export default function Tweets() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search tweets…"
             className="w-full sm:w-64 bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-700"
           />
