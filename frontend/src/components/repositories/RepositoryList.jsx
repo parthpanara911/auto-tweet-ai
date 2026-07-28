@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import RepositoryCard from './RepositoryCard.jsx';
 import { usePageTitle } from '../../hooks/usePageTitle.js';
 import { useRepositories } from '../../hooks/useRepositories.js';
+import { useDebounce } from '../../hooks/useDebounce.js';
 
 function toErrorMessage(err) {
   if (!err) return '';
@@ -41,18 +42,11 @@ export default function RepositoryList() {
   const limit = 12;
 
   const [searchInput, setSearchInput] = useState('');
-  const [query, setQuery] = useState('');
-
-  const [syncing, setSyncing] = useState(false);
+  const debouncedSearch = useDebounce(searchInput, 300);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setQuery(searchInput);
-      setPage(1);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+    setPage(1);
+  }, [debouncedSearch]);
 
   const {
     data,
@@ -65,7 +59,7 @@ export default function RepositoryList() {
     enableTracking,
     disableTracking,
     syncRepositories,
-  } = useRepositories({ page, limit, search: query });
+  } = useRepositories({ page, limit, search: debouncedSearch });
 
   const [busyByRepo, setBusyByRepo] = useState(() => new Map());
   const [errorByRepo, setErrorByRepo] = useState(() => new Map());
@@ -163,19 +157,6 @@ export default function RepositoryList() {
     [disableTracking, refetch, setBusy, setRepoError, updateRepoOptimistic],
   );
 
-  const handleRefresh =
-    async () => {
-      if (syncing) return;
-
-      try {
-        setSyncing(true);
-        await syncRepositories(true);
-        await refetch();
-      } finally {
-        setSyncing(false);
-      }
-    };
-
   useEffect(() => {
     // lightweight auto-refresh when the backend reports "pending" webhook creation
     const hasPending = data.some((r) => r.trackingStatus === 'pending');
@@ -231,11 +212,16 @@ export default function RepositoryList() {
           <button
             type="button"
             className="px-3 py-2 rounded-lg text-sm font-medium border bg-gray-900 border-gray-800 text-gray-200 hover:bg-gray-900/60"
-            onClick={handleRefresh} disabled={syncing}
+            onClick={async () => {
+              try {
+                await syncRepositories(true);
+                await refetch();
+              } catch (err) {
+                console.error(err);
+              }
+            }}
           >
-            {syncing
-              ? "Refreshing..."
-              : "Refresh"}
+            Refresh
           </button>
         </div>
       </div>
