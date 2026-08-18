@@ -6,13 +6,13 @@ function generateTokens(userId) {
     const accessToken = jwt.sign(
         { userId },
         config.JWT_ACCESS_SECRET,
-        { expiresIn: '15m' }
+        { expiresIn: config.JWT_ACCESS_EXPIRES_IN }
     );
 
     const refreshToken = jwt.sign(
         { userId },
         config.JWT_REFRESH_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: config.JWT_REFRESH_EXPIRES_IN }
     );
 
     return { accessToken, refreshToken };
