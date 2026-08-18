@@ -1,13 +1,14 @@
-import express from "express";
+import { Router } from "express";
 import authMiddleware from "../middleware/auth.js";
 import DashboardController from "../controllers/dashboard.controller.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
-const router = express.Router();
+const router = Router();
 
 router.use(authMiddleware);
 
-router.get('/summary', (req, res, next) =>
-    DashboardController.getSummary(req, res, next)
+router.get('/summary', asyncHandler((req, res) =>
+    DashboardController.getSummary(req, res))
 );
 
 export default router;

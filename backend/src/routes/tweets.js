@@ -1,8 +1,9 @@
-import express from "express";
+import { Router } from "express";
 import authMiddleware from "../middleware/auth.js";
 import TweetController from "../controllers/tweet.controller.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
-const router = express.Router();
+const router = Router();
 
 router.use(authMiddleware);
 
@@ -10,54 +11,36 @@ router.use(authMiddleware);
  * Get All Tweets
  * Query: ?page=1&limit=10&status=draft
  */
-router.get('/', (req, res, next) =>
-    TweetController.getUserTweets(req, res, next)
-);
+router.get('/', asyncHandler((req, res) => TweetController.getUserTweets(req, res)));
 
 // Get Draft Tweets
-router.get('/drafts', (req, res, next) =>
-    TweetController.getDraftTweets(req, res, next)
-);
+router.get('/drafts', asyncHandler((req, res) => TweetController.getDraftTweets(req, res)));
 
 // Get Stats
-router.get('/stats', (req, res, next) =>
-    TweetController.getStats(req, res, next)
-);
+router.get('/stats', asyncHandler((req, res) => TweetController.getStats(req, res)));
 
 /**
  * Generate New Tweet
  * Body: { commitIds?: ["id1", "id2"] } (optional)
  */
-router.post('/generate', (req, res, next) =>
-    TweetController.generateTweet(req, res, next)
-);
+router.post('/generate', asyncHandler((req, res) => TweetController.generateTweet(req, res)));
 
 // Get single tweet
-router.get('/:tweetId', (req, res, next) =>
-    TweetController.getTweetById(req, res, next)
-);
+router.get('/:tweetId', asyncHandler((req, res) => TweetController.getTweetById(req, res)));
 
 /**
  * Edit Draft Tweet
  * Body: { content: "New tweet text..." }
  */
-router.patch('/:tweetId', (req, res, next) =>
-    TweetController.editTweet(req, res, next)
-);
+router.patch('/:tweetId', asyncHandler((req, res) => TweetController.editTweet(req, res)));
 
 // Approve Draft
-router.post('/:tweetId/approve', (req, res, next) =>
-    TweetController.approveTweet(req, res, next)
-);
+router.post('/:tweetId/approve', asyncHandler((req, res) => TweetController.approveTweet(req, res)));
 
 // Reject Draft 
-router.post('/:tweetId/reject', (req, res, next) =>
-    TweetController.rejectTweet(req, res, next)
-);
+router.post('/:tweetId/reject', asyncHandler((req, res) => TweetController.rejectTweet(req, res)));
 
 // Delete Tweet
-router.delete('/:tweetId', (req, res, next) =>
-    TweetController.deleteTweet(req, res, next)
-);
+router.delete('/:tweetId', asyncHandler((req, res) => TweetController.deleteTweet(req, res)));
 
 export default router;

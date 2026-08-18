@@ -150,155 +150,127 @@ class WebhookController {
         }
     }
 
-    /**
-     * Register webhook for repository
-     */
-    async registerWebhook(req, res, next) {
-        try {
-            const user = req.user;
-            const { repositoryId } = req.body;
+    async registerWebhook(req, res) {
+        const user = req.user;
+        const { repositoryId } = req.body;
 
-            if (!repositoryId) {
-                throw new AppError(
-                    'repositoryId is required',
-                    400,
-                    'MISSING_REPO_ID'
-                );
+        if (!repositoryId) {
+            throw new AppError(
+                'repositoryId is required',
+                400,
+                'MISSING_REPO_ID'
+            );
+        }
+
+        const githubAccessToken = decrypt(user.githubAccessToken);
+
+        const webhookUrl = `${process.env.WEBHOOK_BASE_URL}/api/webhooks/github`;
+
+        const webhook = await WebhookService.registerWebhook(
+            user._id,
+            repositoryId,
+            githubAccessToken,
+            webhookUrl
+        );
+
+        return res.status(201).json({
+            message: 'Webhook registered successfully',
+            webhook
+        });
+    }
+
+    async unregisterWebhook(req, res) {
+        const user = req.user;
+        const { webhookId } = req.params;
+
+        const githubAccessToken = decrypt(user.githubAccessToken);
+
+        const result = await WebhookService.unregisterWebhook(
+            user._id,
+            webhookId,
+            githubAccessToken
+        );
+
+        return res.json({
+            message: 'Webhook unregistered successfully',
+            result
+        });
+    }
+
+    async getUserWebhooks(req, res) {
+        const user = req.user;
+        const { page = 1, limit = 10 } = req.query;
+
+        const parsedPage = parseInt(page);
+        const parsedLimit = parseInt(limit);
+
+        const finalPage = isNaN(parsedPage) ? 1 : parsedPage;
+        const finalLimit = Math.min(isNaN(parsedLimit) ? 10 : parsedLimit, 50);
+        const skip = (finalPage - 1) * finalLimit;
+
+
+        const [webhooks, total] = await Promise.all([
+            Webhook.find({ userId: user._id })
+                .populate('repositoryId', 'name fullName')
+                .skip(skip)
+                .limit(finalLimit)
+                .sort({ createdAt: -1 })
+                .lean(),
+
+            Webhook.countDocuments({ userId: user._id })
+        ]);
+
+        return res.json({
+            status: 'success',
+            data: webhooks,
+            pagination: {
+                total,
+                page: finalPage,
+                limit: finalLimit,
+                pages: Math.ceil(total / finalLimit)
             }
-
-            const githubAccessToken = decrypt(user.githubAccessToken);
-
-            const webhookUrl = `${process.env.WEBHOOK_BASE_URL}/api/webhooks/github`;
-
-            const webhook = await WebhookService.registerWebhook(
-                user._id,
-                repositoryId,
-                githubAccessToken,
-                webhookUrl
-            );
-
-            return res.status(201).json({
-                message: 'Webhook registered successfully',
-                webhook
-            });
-        } catch (error) {
-            next(error);
-        }
+        });
     }
 
-    /**
-     * Unregister webhook
-     */
-    async unregisterWebhook(req, res, next) {
-        try {
-            const user = req.user;
-            const { webhookId } = req.params;
+    async getWebhookEvents(req, res) {
+        const { webhookId } = req.params;
+        const { page = 1, limit = 20, status } = req.query;
 
-            const githubAccessToken = decrypt(user.githubAccessToken);
+        const parsedPage = parseInt(page);
+        const parsedLimit = parseInt(limit);
 
-            const result = await WebhookService.unregisterWebhook(
-                user._id,
-                webhookId,
-                githubAccessToken
-            );
+        const finalPage = isNaN(parsedPage) ? 1 : parsedPage;
+        const finalLimit = Math.min(isNaN(parsedLimit) ? 10 : parsedLimit, 50);
+        const skip = (finalPage - 1) * finalLimit;
 
-            return res.json({
-                message: 'Webhook unregistered successfully',
-                result
-            });
-        } catch (error) {
-            next(error);
-        }
-    }
+        const webhook = await Webhook.findOne({
+            githubId: webhookId,
+            userId: req.user._id
+        })
 
-    /**
-     * Get user's webhooks
-     */
-    async getUserWebhooks(req, res, next) {
-        try {
-            const user = req.user;
-            const { page = 1, limit = 10 } = req.query;
+        const query = { webhookId: webhook._id };
+        if (status) query.status = status;
 
-            const parsedPage = parseInt(page);
-            const parsedLimit = parseInt(limit);
+        const [events, total] = await Promise.all([
+            await WebhookEventLog.find(query)
+                .skip(skip)
+                .limit(finalLimit)
+                .sort({ createdAt: -1 })
+                .lean(),
 
-            const finalPage = isNaN(parsedPage) ? 1 : parsedPage;
-            const finalLimit = Math.min(isNaN(parsedLimit) ? 10 : parsedLimit, 50);
-            const skip = (finalPage - 1) * finalLimit;
+            WebhookEventLog.countDocuments(query)
+        ]);
 
-
-            const [webhooks, total] = await Promise.all([
-                Webhook.find({ userId: user._id })
-                    .populate('repositoryId', 'name fullName')
-                    .skip(skip)
-                    .limit(finalLimit)
-                    .sort({ createdAt: -1 })
-                    .lean(),
-
-                Webhook.countDocuments({ userId: user._id })
-            ]);
-
-            return res.json({
-                status: 'success',
-                data: webhooks,
-                pagination: {
-                    total,
-                    page: finalPage,
-                    limit: finalLimit,
-                    pages: Math.ceil(total / finalLimit)
-                }
-            });
-        } catch (error) {
-            next(error);
-        }
-    }
-
-    /**
-     * Get webhook events
-     */
-    async getWebhookEvents(req, res, next) {
-        try {
-            const { webhookId } = req.params;
-            const { page = 1, limit = 20, status } = req.query;
-
-            const parsedPage = parseInt(page);
-            const parsedLimit = parseInt(limit);
-
-            const finalPage = isNaN(parsedPage) ? 1 : parsedPage;
-            const finalLimit = Math.min(isNaN(parsedLimit) ? 10 : parsedLimit, 50);
-            const skip = (finalPage - 1) * finalLimit;
-
-            const webhook = await Webhook.findOne({
-                githubId: webhookId,
-                userId: req.user._id
-            })
-
-            const query = { webhookId: webhook._id };
-            if (status) query.status = status;
-
-            const [events, total] = await Promise.all([
-                await WebhookEventLog.find(query)
-                    .skip(skip)
-                    .limit(finalLimit)
-                    .sort({ createdAt: -1 })
-                    .lean(),
-
-                WebhookEventLog.countDocuments(query)
-            ]);
-
-            return res.json({
-                status: 'success',
-                data: events,
-                pagination: {
-                    total,
-                    page: finalPage,
-                    limit: finalLimit,
-                    pages: Math.ceil(total / finalLimit)
-                }
-            });
-        } catch (error) {
-            next(error);
-        }
+        return res.json({
+            status: 'success',
+            data: events,
+            pagination: {
+                total,
+                page: finalPage,
+                limit: finalLimit,
+                pages: Math.ceil(total / finalLimit)
+            }
+        });
     }
 }
 

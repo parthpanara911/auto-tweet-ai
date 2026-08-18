@@ -1,24 +1,25 @@
-import express from "express";
+import { Router } from "express";
 import authMiddleware from "../middleware/auth.js";
 import RepositoryController from "../controllers/repository.controller.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
-const router = express.Router();
+const router = Router();
 
 router.use(authMiddleware);
 
 // Sync repositories from GitHub
-router.post('/sync', (req, res, next) => RepositoryController.syncRepositories(req, res, next));
+router.post('/sync', asyncHandler((req, res) => RepositoryController.syncRepositories(req, res)));
 
 // Get user's repositories
-router.get('/', (req, res, next) => RepositoryController.getUserRepositories(req, res, next));
+router.get('/', asyncHandler((req, res) => RepositoryController.getUserRepositories(req, res)));
 
 // Add repository to tracking
-router.patch('/track', (req, res, next) => RepositoryController.addRepositoryToTracking(req, res, next));
-
-// Get repository details
-router.get('/:repositoryId', (req, res, next) => RepositoryController.getRepositoryDetails(req, res, next));
+router.patch('/track', asyncHandler((req, res) => RepositoryController.addRepositoryToTracking(req, res)));
 
 // Remove repository from tracking
-router.patch('/:repositoryId/untrack', (req, res, next) => RepositoryController.removeRepositoryFromTracking(req, res, next));
+router.patch('/:repositoryId/untrack', asyncHandler((req, res) => RepositoryController.removeRepositoryFromTracking(req, res)));
+
+// Get repository details
+router.get('/:repositoryId', asyncHandler((req, res) => RepositoryController.getRepositoryDetails(req, res)));
 
 export default router;
