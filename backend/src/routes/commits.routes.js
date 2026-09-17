@@ -3,10 +3,13 @@ import mongoose from "mongoose";
 import authMiddleware from "../middleware/auth.js";
 import Commit from "../db/models/Commit.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import { rateLimit, keyByUser } from "../middleware/rate-limit.js";
+import { generalApiLimiter } from "../config/rate-limiters.js";
 
 const router = Router();
 
 router.use(authMiddleware);
+router.use(rateLimit(generalApiLimiter, keyByUser));
 
 // Get user's commits
 router.get('/', asyncHandler(async (req, res) => {

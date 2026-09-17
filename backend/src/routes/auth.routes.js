@@ -14,10 +14,12 @@ import RateLimitService from "../services/rate-limit.service.js";
 import { redisClient } from "../config/redis.js";
 import { commitProcessingQueue } from "../queue/bull.js";
 import AppError from "../errors/AppError.js";
+import { rateLimit, keyByIp } from "../middleware/rate-limit.js";
+import { authIpLimiter, authRefreshLimiter } from "../config/rate-limiters.js";
 
 const router = express.Router();
 
-router.get('/github', passport.authenticate('github', {
+router.get('/github', rateLimit(authIpLimiter, keyByIp), passport.authenticate('github', {
     scope: ['user:email', 'repo', 'admin:repo_hook']
 }));
 
@@ -43,7 +45,7 @@ router.get('/github/callback',
     }
 );
 
-router.get('/exchange', async (req, res, next) => {
+router.get('/exchange', rateLimit(authIpLimiter, keyByIp), async (req, res, next) => {
     try {
         const { code } = req.query;
 
@@ -81,7 +83,7 @@ router.get('/exchange', async (req, res, next) => {
     }
 });
 
-router.post('/refresh', (req, res, next) => {
+router.post('/refresh', rateLimit(authRefreshLimiter, keyByIp), (req, res, next) => {
     try {
         const refreshToken = req.cookies?.refresh_token;
 
