@@ -33,6 +33,14 @@ export const mutationLimiter = new RateLimiterRedis({
     duration: 60
 });
 
+export const adminLimiter = new RateLimiterRedis({
+    storeClient: redisClient,
+    useRedisPackage: true,
+    keyPrefix: "rl:admin",
+    points: 200,
+    duration: 60,
+});
+
 export const generalApiLimiter = new RateLimiterRedis({
     storeClient: redisClient,
     useRedisPackage: true,

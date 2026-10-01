@@ -10,6 +10,11 @@ import webhookRouter from "./routes/webhooks.routes.js";
 import commitRouter from "./routes/commits.routes.js";
 import tweetRouter from "./routes/tweets.routes.js";
 import dashboardRouter from "./routes/dashboard.routes.js"
+import { serverAdapter } from "./config/bullBoard.js";
+import authMiddleware from "./middleware/auth.js";
+import requireAdmin from "./middleware/requireAdmin.js";
+import { rateLimit, keyByUser } from "./middleware/rate-limit.js";
+import { adminLimiter } from "./config/rate-limiters.js";
 import errorHandler from "./middleware/errorHandler.js";
 
 const app = express();
@@ -38,9 +43,12 @@ app.use('/api/webhooks/github', express.raw({
         req.rawBody = buf;
     }
 }));
+
 app.use(cookieParser());
 app.use(express.json());
 app.use(passport.initialize());
+
+app.use("/admin/queues", authMiddleware, rateLimit(adminLimiter, keyByUser), requireAdmin, serverAdapter.getRouter());
 
 app.use('/health', healthRouter);
 app.use('/api/auth', authRouter);

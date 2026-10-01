@@ -5,7 +5,6 @@ import { initRedis } from "./config/redis.js";
 import { initializeQueues, commitProcessingQueue, tweetGenerationQueue } from "./queue/bull.js";
 import { registerCommitProcessor } from "./queue/processors/register-commit-processor.js";
 import { registerTweetProcessor } from "./queue/processors/register-tweet-processor.js";
-import { setupBullBoard } from "./config/bullBoard.js";
 
 const PORT = config.PORT;
 
@@ -24,11 +23,6 @@ const startServer = async () => {
 
             console.log("Commit processor registered");
             console.log("Tweet processor registered");
-
-            setupBullBoard(app, {
-                commitQueue: commitProcessingQueue,
-                tweetQueue: tweetGenerationQueue,
-            });
         } catch (redisError) {
             console.error("Redis unavailable:", redisError.message);
             console.warn("Running without queue support");
