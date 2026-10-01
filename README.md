@@ -84,3 +84,19 @@ Create a `.env` file in the backend folder by copying values from `.env.example`
 ```bash
 npm run dev
 ```
+
+---
+
+## Admin Management
+
+Grant or revoke admin access (needed for `/admin/queues`). The user must have logged in via GitHub at least once.
+
+```bash
+# Grant admin
+npm run user:role -- --githubId=<GITHUB_ID>
+
+# Revoke admin
+npm run user:role -- --githubId=<GITHUB_ID> --role=user
+```
+
+Run against production only by supplying `MONGODB_URI` for that single command.
