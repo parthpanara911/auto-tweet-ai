@@ -15,9 +15,6 @@ createBullBoard({
     options: {
         uiConfig: {
             boardTitle: "AutoTweetAI Jobs",
-            pollingInterval: {
-                forceInterval: 5
-            }
         }
     }
 });
