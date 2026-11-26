@@ -103,6 +103,34 @@ class CommitRepository {
     }
 
     /**
+     * Find a user's commits with filters (tweeted, isProcessed, repositoryId).
+     */
+    async findFilteredByUser(userId, filters = {}, { skip = 0, limit = 10 } = {}) {
+        const query = { userId, ...filters };
+
+        const [commits, total] = await Promise.all([
+            Commit.find(query)
+                .select(
+                    '_id repositoryId githubSha message additions deletions filesChanged timestamp url isProcessed tweeted'
+                )
+                .sort({ timestamp: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            Commit.countDocuments(query),
+        ]);
+
+        return { commits, total };
+    }
+
+    /**
+     * Find a commit by ID that belongs to the given user.
+     */
+    async findByIdAndUser(commitId, userId) {
+        return Commit.findOne({ _id: commitId, userId }).lean();
+    }
+
+    /**
      * Find unprocessed commits
      * Used by AI layer for processing
      */

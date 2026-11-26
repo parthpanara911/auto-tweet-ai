@@ -1,7 +1,6 @@
 import { Router } from "express";
-import mongoose from "mongoose";
 import authMiddleware from "../middleware/auth.js";
-import Commit from "../db/models/Commit.js";
+import CommitController from "../controllers/commit.controller.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { rateLimit, keyByUser } from "../middleware/rate-limit.js";
 import { generalApiLimiter } from "../config/rate-limiters.js";
@@ -11,69 +10,8 @@ const router = Router();
 router.use(authMiddleware);
 router.use(rateLimit(generalApiLimiter, keyByUser));
 
-// Get user's commits
-router.get('/', asyncHandler(async (req, res) => {
-    const userId = req.user._id;
-    const { page = 1, limit = 10, tweeted, isProcessed, repositoryId } = req.query;
+router.get('/', asyncHandler((req, res) => CommitController.getUserCommits(req, res)));
 
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
-    const skip = (pageNum - 1) * limitNum;
-
-    const query = { userId };
-
-    // "Not posted yet" — includes tweets where tweeted is false, null, or missing.
-    if (tweeted === 'false') query.tweeted = { $ne: true };
-    if (tweeted === 'true') query.tweeted = true;
-    if (isProcessed === 'true') query.isProcessed = true;
-    if (repositoryId && mongoose.Types.ObjectId.isValid(String(repositoryId))) {
-        query.repositoryId = new mongoose.Types.ObjectId(String(repositoryId));
-    }
-
-    const commits = await Commit.find(query)
-        .select(
-            '_id repositoryId githubSha message additions deletions filesChanged timestamp url isProcessed tweeted'
-        )
-        .sort({ timestamp: -1 })
-        .skip(skip)
-        .limit(limitNum)
-        .lean();
-
-    const total = await Commit.countDocuments(query);
-
-    res.json({
-        status: 'success',
-        data: commits,
-        pagination: {
-            page: pageNum,
-            limit: limitNum,
-            total,
-            pages: Math.ceil(total / limitNum)
-        }
-    });
-}));
-
-// Get single commit
-router.get('/:commitId', asyncHandler(async (req, res) => {
-    const { commitId } = req.params;
-    const userId = req.user._id;
-
-    const commit = await Commit.findOne({
-        _id: commitId,
-        userId
-    });
-
-    if (!commit) {
-        return res.status(404).json({
-            status: 'error',
-            message: 'Commit not found'
-        });
-    }
-
-    res.json({
-        status: 'success',
-        data: commit
-    });
-}));
+router.get('/:commitId', asyncHandler((req, res) => CommitController.getCommitById(req, res)));
 
 export default router;

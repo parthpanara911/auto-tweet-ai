@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import CommitRepository from "../repositories/commit.repository.js";
 import AppError from "../errors/AppError.js";
 
@@ -23,23 +24,50 @@ class CommitService {
     }
 
     /**
-     * Get commits for user
+     * Get a user's commits with optional filters and pagination.
      */
-    async getUserCommits(userId, options = {}) {
-        try {
-            const result = await CommitRepository.findByUserId(userId, options);
+    async listUserCommits(userId, { page, limit, tweeted, isProcessed, repositoryId }) {
+        const filters = {};
 
-            return {
-                commits: result.commits.map((c) => this._formatCommit(c)),
-                pagination: result.pagination
-            };
-        } catch (error) {
-            throw new AppError(
-                'Failed to fetch user commits',
-                500,
-                'FETCH_COMMITS_ERROR'
-            );
+        if (tweeted === 'false') filters.tweeted = { $ne: true };
+        if (tweeted === 'true') filters.tweeted = true;
+        if (isProcessed === 'true') filters.isProcessed = true;
+        if (repositoryId && mongoose.Types.ObjectId.isValid(String(repositoryId))) {
+            filters.repositoryId = new mongoose.Types.ObjectId(String(repositoryId));
         }
+
+        const { commits, total } = await CommitRepository.findFilteredByUser(
+            userId,
+            filters,
+            { skip: (page - 1) * limit, limit }
+        );
+
+        return {
+            commits,
+            pagination: {
+                page,
+                limit,
+                total,
+                pages: Math.ceil(total / limit)
+            }
+        };
+    }
+
+    /**
+     * Get a commit by ID and ensure it belongs to the user.
+     * Returns the same 404 error for invalid, missing, or unauthorized commits.
+     */
+    async getCommitById(commitId, userId) {
+        if (!mongoose.Types.ObjectId.isValid(String(commitId))) {
+            throw new AppError('Commit not found', 404, 'COMMIT_NOT_FOUND');
+        }
+
+        const commit = await CommitRepository.findByIdAndUser(commitId, userId);
+        if (!commit) {
+            throw new AppError('Commit not found', 404, 'COMMIT_NOT_FOUND');
+        }
+
+        return commit;
     }
 
     /**
