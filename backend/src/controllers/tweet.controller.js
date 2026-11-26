@@ -1,16 +1,20 @@
 import { tweetGenerationQueue } from "../queue/bull.js";
 import TweetService from "../services/tweet-generation/tweet.service.js";
+import { parsePagination } from "../utils/pagination.js";
 
 class TweetController {
     async getUserTweets(req, res) {
         const userId = req.user._id;
-        const { page = 1, limit = 10, status = null, search = '' } = req.query;
-        const parsedPage = Math.max(1, parseInt(page, 10) || 1);
-        const parsedLimit = Math.min(50, Math.max(1, parseInt(limit, 10) || 10));
+        const { status = null, search = '' } = req.query;
+
+        const { page, limit } = parsePagination(req.query, {
+            defaultLimit: 10,
+            maxLimit: 50,
+        });
 
         const result = await TweetService.getUserTweets(userId, {
-            page: parsedPage,
-            limit: parsedLimit,
+            page,
+            limit,
             status,
             search,
         });

@@ -3,6 +3,7 @@ import WebhookEventService from "../services/webhook-event.service.js";
 import WebhookEventLog from "../db/models/WebhookEventLog.js";
 import { commitProcessingQueue, tweetGenerationQueue } from "../queue/bull.js";
 import { decrypt } from "../utils/encryption.js";
+import { parsePagination } from "../utils/pagination.js";
 import WebhookService from "../services/webhook.service.js";
 import Webhook from "../db/models/Webhook.js";
 import AppError from "../errors/AppError.js";
@@ -199,21 +200,18 @@ class WebhookController {
 
     async getUserWebhooks(req, res) {
         const user = req.user;
-        const { page = 1, limit = 10 } = req.query;
+        const { page, limit } = parsePagination(req.query, {
+            defaultLimit: 10,
+            maxLimit: 50,
+        });
 
-        const parsedPage = parseInt(page);
-        const parsedLimit = parseInt(limit);
-
-        const finalPage = isNaN(parsedPage) ? 1 : parsedPage;
-        const finalLimit = Math.min(isNaN(parsedLimit) ? 10 : parsedLimit, 50);
-        const skip = (finalPage - 1) * finalLimit;
-
+        const skip = (page - 1) * limit;
 
         const [webhooks, total] = await Promise.all([
             Webhook.find({ userId: user._id })
                 .populate('repositoryId', 'name fullName')
                 .skip(skip)
-                .limit(finalLimit)
+                .limit(limit)
                 .sort({ createdAt: -1 })
                 .lean(),
 
@@ -225,23 +223,23 @@ class WebhookController {
             data: webhooks,
             pagination: {
                 total,
-                page: finalPage,
-                limit: finalLimit,
-                pages: Math.ceil(total / finalLimit)
+                page,
+                limit,
+                pages: Math.ceil(total / limit)
             }
         });
     }
 
     async getWebhookEvents(req, res) {
         const { webhookId } = req.params;
-        const { page = 1, limit = 20, status } = req.query;
+        const { status } = req.query;
 
-        const parsedPage = parseInt(page);
-        const parsedLimit = parseInt(limit);
+        const { page, limit } = parsePagination(req.query, {
+            defaultLimit: 20,
+            maxLimit: 50,
+        });
 
-        const finalPage = isNaN(parsedPage) ? 1 : parsedPage;
-        const finalLimit = Math.min(isNaN(parsedLimit) ? 10 : parsedLimit, 50);
-        const skip = (finalPage - 1) * finalLimit;
+        const skip = (page - 1) * limit;
 
         const webhook = await Webhook.findOne({
             githubId: webhookId,
@@ -252,9 +250,9 @@ class WebhookController {
         if (status) query.status = status;
 
         const [events, total] = await Promise.all([
-            await WebhookEventLog.find(query)
+            WebhookEventLog.find(query)
                 .skip(skip)
-                .limit(finalLimit)
+                .limit(limit)
                 .sort({ createdAt: -1 })
                 .lean(),
 
@@ -266,9 +264,9 @@ class WebhookController {
             data: events,
             pagination: {
                 total,
-                page: finalPage,
-                limit: finalLimit,
-                pages: Math.ceil(total / finalLimit)
+                page,
+                limit,
+                pages: Math.ceil(total / limit)
             }
         });
     }

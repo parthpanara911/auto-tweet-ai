@@ -3,6 +3,7 @@ import RepositoryService from "../services/repository.service.js";
 import RepositorySyncCooldownService from "../services/repository-sync-cooldown.service.js";
 import RepositorySyncLockService from "../services/repository-sync-lock.service.js";
 import { decrypt } from "../utils/encryption.js";
+import { parsePagination } from "../utils/pagination.js";
 import { redisClient } from "../config/redis.js";
 import Repository from "../db/models/Repository.js";
 import AppError from "../errors/AppError.js";
@@ -64,19 +65,18 @@ class RepositoryController {
 
     async getUserRepositories(req, res) {
         const user = req.user;
-        const { isTracking, isPrivate, page = 1, limit = 12, search = '' } = req.query;
+        const { isTracking, isPrivate, search = '' } = req.query;
 
-        const parsedPage = parseInt(page);
-        const parsedLimit = parseInt(limit);
-
-        const finalPage = isNaN(parsedPage) ? 1 : parsedPage;
-        const finalLimit = Math.min(isNaN(parsedLimit) ? 10 : parsedLimit, 50);
+        const { page, limit } = parsePagination(req.query, {
+            defaultLimit: 12,
+            maxLimit: 50,
+        });
 
         const result = await RepositoryService.getUserRepositories(user._id, {
             isTracking: isTracking ? isTracking === 'true' : null,
             isPrivate: isPrivate !== undefined ? isPrivate === 'true' : null,
-            skip: (finalPage - 1) * finalLimit,
-            limit: finalLimit,
+            skip: (page - 1) * limit,
+            limit,
             search,
         });
 
