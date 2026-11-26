@@ -59,7 +59,7 @@ async function request(path, options = {}) {
       ? await res.json().catch(() => ({}))
       : await res.text().catch(() => '');
 
-    const error = new Error(errBody?.message || 'Request failed');
+    const error = new Error(errBody?.error?.message || errBody?.message || 'Request failed');
     error.status = res.status;
     error.body = errBody;
     throw error;
